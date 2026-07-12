@@ -10,8 +10,8 @@ from config.config import FMS_CONFIG
 
 # ─────────────── Настройки ───────────────
 API_KEY = FMS_CONFIG["api_key"]
-OBJECT_ID = FMS_CONFIG["object_id"]
 BASE_URL = FMS_CONFIG["base_url"]
+OBJECT_ID = "5a49ef4a-42cf-11f0-9aa1-c714717e531e"
 ENDPOINT = f"{BASE_URL}/objects/{OBJECT_ID}/coordinates"
 
 FROM_DATETIME = "2026-07-01T00:00:00Z"

@@ -16,7 +16,6 @@ MAIL_CONFIG = {
 
 FMS_CONFIG = {
     "api_key": os.environ.get("API_KEY_TRIMEX", ""),
-    "object_id": "5a49ef4a-42cf-11f0-9aa1-c714717e531e",
     "base_url": "https://api.fm-track.com",
 }
 
