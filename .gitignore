@@ -35,5 +35,8 @@ Desktop.ini
 # Logs
 *.log
 
+# SQLite data
+data/
+
 # Env files
 .env

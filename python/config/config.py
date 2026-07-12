@@ -19,4 +19,12 @@ FMS_CONFIG = {
     "base_url": "https://api.fm-track.com",
 }
 
+FMS_API_KEYS = [
+    {"name": "TRIMEX", "key": os.environ.get("API_KEY_TRIMEX", "")},
+    {"name": "STELLAR", "key": os.environ.get("API_KEY_STELLAR", "")},
+]
+
 OUTPUT_FILE = "routesheet_report.xlsx"
+
+SQLITE_DB_PATH = "data/coordinates.db"
+LOG_FILE = "logs/fetch_coords.log"
