@@ -1,18 +1,22 @@
 import json
-import requests
 import os
+import sys
+import requests
 import pandas as pd
 from datetime import datetime, timedelta
 
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from config.config import FMS_CONFIG
+
 # ─────────────── Настройки ───────────────
-API_KEY = os.environ.get("API_KEY_TRIMEX", "")
-OBJECT_ID = "5a49ef4a-42cf-11f0-9aa1-c714717e531e"
+API_KEY = FMS_CONFIG["api_key"]
+OBJECT_ID = FMS_CONFIG["object_id"]
+BASE_URL = FMS_CONFIG["base_url"]
+ENDPOINT = f"{BASE_URL}/objects/{OBJECT_ID}/coordinates"
+
 FROM_DATETIME = "2026-07-01T00:00:00Z"
 TO_DATETIME = "2026-07-10T23:59:59Z"
 OUTPUT_FILE = "car_history.xlsx"
-
-BASE_URL = "https://api.fm-track.com"
-ENDPOINT = f"{BASE_URL}/objects/{OBJECT_ID}/coordinates"
 
 FILTER_INTERVAL_SEC = 600  # 10 минут
 PAGE_LIMIT = 1000
