@@ -52,8 +52,8 @@ BEGIN
         FORMAT(RouteSheetDate, 'dd.MM.yyyy HH:mm') AS [Дата ПЛ],
         [LineNo]               AS [№ стрічки],
         RouteName            AS [Маршрут в стрічці завдання],
-        StartFact_RShT       AS [Дата початку],
-        EndFact_RShT         AS [Дата завершення],
+        FORMAT(StartFact_RShT, 'dd.MM.yyyy') AS [Дата початку],
+        FORMAT(EndFact_RShT, 'dd.MM.yyyy') AS [Дата завершення],
         'Тривалість > 20 днів' AS [Причина]
     FROM #base
     WHERE StartFact_RShT IS NOT NULL
@@ -72,8 +72,8 @@ BEGIN
         FORMAT(RouteSheetDate, 'dd.MM.yyyy HH:mm'),
         [LineNo],
         RouteName,
-        StartFact_RShT,
-        EndFact_RShT,
+        FORMAT(StartFact_RShT, 'dd.MM.yyyy'),
+        FORMAT(EndFact_RShT, 'dd.MM.yyyy'),
         'Тривалість мінусова'
     FROM #base
     WHERE StartFact_RShT IS NOT NULL
@@ -92,8 +92,8 @@ BEGIN
         FORMAT(RouteSheetDate, 'dd.MM.yyyy HH:mm'),
         [LineNo],
         RouteName,
-        StartFact_RShT,
-        EndFact_RShT,
+        FORMAT(StartFact_RShT, 'dd.MM.yyyy'),
+        FORMAT(EndFact_RShT, 'dd.MM.yyyy'),
         'Не вказано дату'
     FROM #base
     WHERE StartFact_RShT IS NULL
@@ -111,8 +111,8 @@ BEGIN
         FORMAT(RouteSheetDate, 'dd.MM.yyyy HH:mm'),
         [LineNo],
         RouteName,
-        StartFact_RShT,
-        EndFact_RShT,
+        FORMAT(StartFact_RShT, 'dd.MM.yyyy'),
+        FORMAT(EndFact_RShT, 'dd.MM.yyyy'),
         'Поза діапазоном ПЛ'
     FROM #base
     WHERE (StartFact_RShT IS NOT NULL
@@ -132,8 +132,8 @@ BEGIN
         FORMAT(b1.RouteSheetDate, 'dd.MM.yyyy HH:mm'),
         b1.[LineNo],
         b1.RouteName,
-        b1.StartFact_RShT,
-        b1.EndFact_RShT,
+        FORMAT(b1.StartFact_RShT, 'dd.MM.yyyy'),
+        FORMAT(b1.EndFact_RShT, 'dd.MM.yyyy'),
         'Перекриття авто > 2 днів'
     FROM #base b1
     INNER JOIN #base b2
