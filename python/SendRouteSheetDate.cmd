@@ -1,4 +1,4 @@
-@off
-cd /d "C:\Users\ANIA\Desktop\work\projects\python"
-python scripts\RouteSheetDate.py
+@echo off
+cd /d "D:\projects\MyProjects\python\scripts"
+python RouteSheetDate.py
 pause

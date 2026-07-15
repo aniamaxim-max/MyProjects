@@ -1,9 +1,9 @@
 import os
 
 DB_CONFIG = {
-    "server": "vent\\sqlexpress",
-    "database": "Ania",
-    "user": "Ania",
+    "server": os.environ.get("MS_SQL_DB_SERVER", ""),
+    "database": os.environ.get("MS_SQL_DB_DATABASE", ""),
+    "user": os.environ.get("MS_SQL_DB_USER", ""),
     "password": os.environ.get("MS_SQL_DB_PASSWORD", ""),
 }
 

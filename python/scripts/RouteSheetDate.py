@@ -8,7 +8,7 @@ from utils.email_sender import send_email
 
 
 def export_and_send():
-    query = "SELECT TOP 10 * FROM CarNumbers"
+    query = "EXEC pbi.GetRouteSheetIssues"
 
     print("Подключение к базе данных...")
     try:
@@ -33,7 +33,7 @@ def export_and_send():
     </style>
     </head><body>
     <h3>Приветствую!</h3>
-    <p>Во вложении находится свежая выгрузка по запросу <b>pbi.v_routesheet</b>.</p>
+    <p>Во вложении находится свежая выгрузка по запросу <b>pbi.GetRouteSheetIssues</b>.</p>
     <p>Содержимое выгрузки:</p>
     {table_html}
     </body></html>
