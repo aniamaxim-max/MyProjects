@@ -41,7 +41,7 @@ def export_and_send():
 
     try:
         send_email(
-            to="aniamaxim@gmail.com",
+            to="hanna.maksymova@stellar.ua, votd@stellar-ua.com",
             subject="Автоматическая выгрузка: Маршрутные листы",
             body=html_body,
             attachments=[OUTPUT_FILE],
