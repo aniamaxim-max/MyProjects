@@ -57,8 +57,15 @@ def send_email(
             )
             msg.attach(part)
 
+    all_to = []
+    for h in (msg.get_all("To") or []):
+        all_to.extend(a.strip() for a in h.split(",") if a.strip())
+    all_cc = []
+    for h in (msg.get_all("Cc") or []):
+        all_cc.extend(a.strip() for a in h.split(",") if a.strip())
+
     with smtplib.SMTP(server_host, port) as s:
         s.starttls()
         s.login(sender, password)
-        all_recipients = [sender] + (msg.get_all("To") or []) + (msg.get_all("Cc") or [])
+        all_recipients = [sender] + all_to + all_cc
         s.send_message(msg, sender, all_recipients)
