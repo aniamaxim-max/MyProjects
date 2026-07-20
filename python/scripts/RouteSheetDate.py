@@ -1,5 +1,6 @@
 import os
 import sys
+import sqlite3
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from config.config import OUTPUT_FILE
@@ -14,6 +15,30 @@ def export_and_send():
     try:
         df = query_to_df(query)
         print(f"Запрос успешно выполнен. Получено строк: {len(df)}")
+
+        db_path = os.path.join(os.path.dirname(__file__), "..", "data", "exceptions.db")
+        os.makedirs(os.path.dirname(db_path), exist_ok=True)
+        with sqlite3.connect(db_path) as conn:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS route_sheet_exceptions (
+                    RouteSheetRefHex TEXT NOT NULL,
+                    Reason TEXT NOT NULL,
+                    PRIMARY KEY (RouteSheetRefHex, Reason)
+                )
+            """)
+            exceptions = set(
+                (r[0], r[1])
+                for r in conn.execute(
+                    "SELECT RouteSheetRefHex, Reason FROM route_sheet_exceptions"
+                )
+            )
+
+        before = len(df)
+        mask = df.apply(
+            lambda r: (r["RouteSheetRefHex"], r["Причина"]) in exceptions, axis=1
+        )
+        df = df[~mask].drop(columns=["RouteSheetRefHex"])
+        print(f"Исключено строк: {before - len(df)}")
 
         df.to_excel(OUTPUT_FILE, index=False, engine="openpyxl")
         print(f"Данные сохранены в файл: {OUTPUT_FILE}")

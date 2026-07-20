@@ -22,7 +22,8 @@ BEGIN
         t.EndFact_RShT,
         dt.LegalNum,
         dr.RouteName,
-        COALESCE(e._Description, p._Description) AS DriverName
+        COALESCE(e._Description, p._Description) AS DriverName,
+        CONVERT(VARCHAR(MAX), rs.RouteSheetRef, 2) AS RouteSheetRefHex
     INTO #base
     FROM pbi.vb_RouteSheet rs
     INNER JOIN pbi.vb_RouteSheetTask t
@@ -37,7 +38,7 @@ BEGIN
     LEFT JOIN work.dbo._Reference254 p
         ON p._IDRRef = rs.DriverRef
     WHERE rs.RouteSheetDate >= DATEADD(MONTH, -4, CAST(GETDATE() AS DATE))
-      AND rs.RouteSheetDate <= DATEADD(DAY, -5, CAST(GETDATE() AS DATE));
+      AND CAST(rs.IsClosed AS bit) = 1;
 
     CREATE INDEX IX_base_TruckRef ON #base(TruckRef)
         INCLUDE (RouteSheetRef, StartFact_RShT, EndFact_RShT);
@@ -54,6 +55,7 @@ BEGIN
         RouteName            AS [Маршрут в стрічці завдання],
         FORMAT(StartFact_RShT, 'dd.MM.yyyy') AS [Дата початку],
         FORMAT(EndFact_RShT, 'dd.MM.yyyy') AS [Дата завершення],
+        RouteSheetRefHex,
         'Тривалість > 20 днів' AS [Причина]
     FROM #base
     WHERE StartFact_RShT IS NOT NULL
@@ -74,6 +76,7 @@ BEGIN
         RouteName,
         FORMAT(StartFact_RShT, 'dd.MM.yyyy'),
         FORMAT(EndFact_RShT, 'dd.MM.yyyy'),
+        RouteSheetRefHex,
         'Тривалість мінусова'
     FROM #base
     WHERE StartFact_RShT IS NOT NULL
@@ -94,6 +97,7 @@ BEGIN
         RouteName,
         FORMAT(StartFact_RShT, 'dd.MM.yyyy'),
         FORMAT(EndFact_RShT, 'dd.MM.yyyy'),
+        RouteSheetRefHex,
         'Не вказано дату'
     FROM #base
     WHERE StartFact_RShT IS NULL
@@ -113,6 +117,7 @@ BEGIN
         RouteName,
         FORMAT(StartFact_RShT, 'dd.MM.yyyy'),
         FORMAT(EndFact_RShT, 'dd.MM.yyyy'),
+        RouteSheetRefHex,
         'Поза діапазоном ПЛ'
     FROM #base
     WHERE (StartFact_RShT IS NOT NULL
@@ -134,6 +139,7 @@ BEGIN
         b1.RouteName,
         FORMAT(b1.StartFact_RShT, 'dd.MM.yyyy'),
         FORMAT(b1.EndFact_RShT, 'dd.MM.yyyy'),
+        b1.RouteSheetRefHex,
         'Перекриття авто > 2 днів'
     FROM #base b1
     INNER JOIN #base b2
