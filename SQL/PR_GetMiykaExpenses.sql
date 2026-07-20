@@ -16,42 +16,41 @@ BEGIN
         WHERE Description4 IN (N'Тент', N'Сипучка')
     ),
     cte_ExcludedProductGroups AS (
-        SELECT DISTINCT vt._Document650_IDRRef AS OrderRef
-        FROM dbo._Document650_VT17818 vt
-        JOIN dbo._Reference271 r ON vt._Fld17820RRef = r._IDRRef
-        WHERE r._ParentIDRRef IN (
+        SELECT DISTINCT vt.OrderRef
+        FROM pbi.vb_DimOrderStages vt
+        JOIN pbi.vb_DimCargoGroup r ON vt.CargoRef = r.CargoGroupRef
+        WHERE r.ParentGroupRef IN (
             0x924F02B31CC3E40111EFFD8C25CD1220,
             0x931A8B6411C0FD9211E70D85A447F759
         )
     ),
     cte_MiykaDocs AS (
         SELECT
-            a._Fld26320_RRRef                  AS OrderRef,
-            a._RecorderRRef,
-            a._RecorderTRef,
-            a._Fld26332                        AS SumTotal,
-            a._Fld26333                        AS VAT,
-            a._Fld26332 - a._Fld26333          AS SumWithoutVAT,
-            IIF(CONVERT(int, a._RecorderTRef) = 338
+            e.OrderRef,
+            e.RegReff                              AS _RecorderRRef,
+            e.RegReffTable                         AS _RecorderTRef,
+            e.[Sum]                                AS SumTotal,
+            e.NDS                                  AS VAT,
+            e.[Sum] - e.NDS                        AS SumWithoutVAT,
+            IIF(e.RegReffTable = 338
                 AND EXISTS (
-                    SELECT 1 FROM dbo._Document338_VT4234 vt
-                    WHERE vt._Document338_IDRRef = a._RecorderRRef
-                       AND (vt._Fld4241 LIKE N'%заміна продукту%'
-                            OR vt._Fld4241 LIKE N'%пломб%'
-                            OR vt._Fld4241 LIKE N'%шланг%')
-                ), 1, 0)                       AS IsBadAdvance
-        FROM dbo._AccumRg26319 a
-        WHERE a._Active = 0x01
-          AND a._Fld26321RRef = 0x983902B31CC3E40111EC7F3FD376A4F0
+                    SELECT 1 FROM pbi.vb_DimAdvanceReportRows vt
+                    WHERE vt.AdvanceReportRef = e.RegReff
+                       AND (vt.Content LIKE N'%заміна продукту%'
+                            OR vt.Content LIKE N'%пломб%'
+                            OR vt.Content LIKE N'%шланг%')
+                ), 1, 0)                           AS IsBadAdvance
+        FROM pbi.vb_Expenses e
+        WHERE e.ExpensesRef = 0x983902B31CC3E40111EC7F3FD376A4F0
     ),
     cte_FilteredOrders AS (
         SELECT d._IDRRef, d._Number, d._Fld27200,
-               c._Description AS Client,
-               m._Description AS Manager
+               c.ClientName AS Client,
+               m.[User] AS Manager
         FROM dbo._Document650 d
-        LEFT JOIN dbo._Reference123 c ON d._Fld17681_RRRef = c._IDRRef
-        LEFT JOIN dbo._Reference177 m ON d._Fld17686RRef = m._IDRRef
-        LEFT JOIN dbo._Enum26798    e ON d._Fld17685RRef = e._IDRRef
+        LEFT JOIN pbi.vb_DimClient c ON d._Fld17681_RRRef = c.ClientRef
+        LEFT JOIN pbi.vb_DimUsers m ON d._Fld17686RRef = m.UserReff
+        LEFT JOIN pbi.vb_DimOrderStatus e ON d._Fld17685RRef = e.StatusRef
         WHERE d._Fld27200 >= DATEFROMPARTS(4026, 4, 1)
           AND d._Fld27200 <  DATEFROMPARTS(4026, 7, 1)
           AND d._Fld32970 = 0x00
@@ -64,7 +63,7 @@ BEGIN
               0xA107CA8955BA52BF11EA9E6A10FEB780
           )
           AND d._Fld17686RRef <> 0x80B802B31CC3E40111F0FB7A4B1CF82F
-          AND e._EnumOrder NOT IN (2, 6)
+           AND e.EnumOrder NOT IN (2, 6)
           AND (d._Fld17704_RRRef NOT IN (SELECT TruckReff FROM cte_ExcludedTrailers)
                OR d._Fld17704_RRRef IS NULL)
     )
@@ -100,6 +99,6 @@ BEGIN
     GROUP BY d._IDRRef, d._Number, d._Fld27200, d.Client, d.Manager
     HAVING COUNT(DISTINCT md._RecorderRRef) >= 2
 
-    ORDER BY ReasonFilter, OrderDate DESC;
+    ORDER BY ReasonFilter, OrderDate;
 END
 GO
