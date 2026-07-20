@@ -5,7 +5,7 @@ WITH
 Tractors AS (
     SELECT TruckReff, LegalNum
     FROM pbi.v_DimTrucks
-    WHERE Active = 1
+    WHERE Active = 1 AND Description1 = 'Тягачі'
 ),
 JuneDays AS (
     SELECT c.CalDate
