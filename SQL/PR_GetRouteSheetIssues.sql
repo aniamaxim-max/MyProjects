@@ -37,7 +37,7 @@ BEGIN
         ON e._IDRRef = rs.DriverRef
     LEFT JOIN work.dbo._Reference254 p
         ON p._IDRRef = rs.DriverRef
-    WHERE rs.RouteSheetDate >= DATEADD(MONTH, -4, CAST(GETDATE() AS DATE))
+    WHERE rs.RouteSheetDate >= DATEADD(MONTH, -3, CAST(GETDATE() AS DATE))
       AND CAST(rs.IsClosed AS bit) = 1;
 
     CREATE INDEX IX_base_TruckRef ON #base(TruckRef)

@@ -25,6 +25,7 @@ FMS_API_KEYS = [
 ]
 
 OUTPUT_FILE = "routesheet_report.xlsx"
+OUTPUT_FILE_MIYKA = "miyka_expenses_report.xlsx"
 
 SQLITE_DB_PATH = "data/coordinates.db"
 LOG_FILE = "logs/fetch_coords.log"

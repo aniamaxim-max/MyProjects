@@ -43,7 +43,9 @@ cte_MiykaDocs AS (
             AND EXISTS (
                 SELECT 1 FROM dbo._Document338_VT4234 vt
                 WHERE vt._Document338_IDRRef = a._RecorderRRef
-                  AND (vt._Fld4241 LIKE N'%заміна продукту%' OR vt._Fld4241 LIKE N'%пломб%')
+                   AND (vt._Fld4241 LIKE N'%заміна продукту%'
+                        OR vt._Fld4241 LIKE N'%пломб%'
+                        OR vt._Fld4241 LIKE N'%шланг%')
             ), 1, 0)                       AS IsBadAdvance
     FROM dbo._AccumRg26319 a
     WHERE a._Active = 0x01
