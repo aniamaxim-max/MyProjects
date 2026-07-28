@@ -51,8 +51,8 @@ BEGIN
         LEFT JOIN pbi.vb_DimClient c ON d._Fld17681_RRRef = c.ClientRef
         LEFT JOIN pbi.vb_DimUsers m ON d._Fld17686RRef = m.UserReff
         LEFT JOIN pbi.vb_DimOrderStatus e ON d._Fld17685RRef = e.StatusRef
-        WHERE d._Fld27200 >= DATEFROMPARTS(4026, 4, 1)
-          AND d._Fld27200 <  DATEFROMPARTS(4026, 7, 1)
+        WHERE d._Fld27200 >= DATEADD(year, 2000, DATEADD(month, -3, DATEADD(month, DATEDIFF(month, 0, GETDATE()), 0)))
+          AND d._Fld27200 <  DATEADD(year, 2000, DATEADD(month,  0, DATEADD(month, DATEDIFF(month, 0, GETDATE()), 0)))
           AND d._Fld32970 = 0x00
           AND d._Fld17708 = 0x00
           AND d._Marked  = 0x00

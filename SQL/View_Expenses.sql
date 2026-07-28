@@ -11,6 +11,7 @@ Create view pbi.vb_Expenses AS
 SELECT
     IIF(_AccumRg26319._Period > DATEFROMPARTS(4001,1,1), DATEADD(YEAR, -2000, _AccumRg26319._Period), null) AS 'Date'
     ,CONVERT(int, _AccumRg26319._RecorderTRef) AS 'RegReffTable'
+    ,_AccumRg26319._Active AS 'Active'
     ,_AccumRg26319._RecorderRRef AS 'RegReff'
     ,_AccumRg26319._Fld26320_RRRef AS 'TruckOrderRef'
     ,_AccumRg26319._Fld26320_RRRef AS 'OrderRef'

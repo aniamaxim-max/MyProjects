@@ -1,0 +1,762 @@
+<ShowPlanXML xmlns="http://schemas.microsoft.com/sqlserver/2004/07/showplan" Version="1.2" Build="11.0.2100.60">
+  <BatchSequence>
+    <Batch>
+      <Statements>
+        <StmtSimple StatementText="INSERT INTO #AllOrders&#xA;SELECT t.OrderRef, r.TruckRef, r.DriverRef,&#xA;       MIN(t.StartFact_RShT) AS StartResult,&#xA;       MAX(t.EndFact_RShT) AS EndResult&#xA;FROM pbi.v_RouteSheet r&#xA;INNER JOIN pbi.v_RouteSheetTask t ON r.RouteSheetRef = t.RouteSheetRef&#xA;WHERE t.OrderRef &lt;&gt; '00000000000000000000000000000000'&#xA;  AND r.DateRouteEnd &gt;= @StartDate&#xA;GROUP BY t.OrderRef, r.TruckRef, r.DriverRef, r.RouteSheetRef&#xA;&#xA;-- =============================================&#xA;-- 2. Statements&#xA;-- =============================================" StatementId="1" StatementCompId="7" StatementType="INSERT" RetrievedFromCache="true" StatementSubTreeCost="85.1012" StatementEstRows="14095" StatementOptmLevel="FULL" QueryHash="0xAE1595A95E71884" QueryPlanHash="0x651C72D06886D7CA">
+          <StatementSetOptions QUOTED_IDENTIFIER="true" ARITHABORT="true" CONCAT_NULL_YIELDS_NULL="true" ANSI_NULLS="true" ANSI_PADDING="true" ANSI_WARNINGS="true" NUMERIC_ROUNDABORT="false" />
+          <QueryPlan DegreeOfParallelism="1" MemoryGrant="97608" CachedPlanSize="112" CompileTime="38" CompileCPU="38" CompileMemory="1616">
+            <Warnings>
+              <PlanAffectingConvert ConvertIssue="Cardinality Estimate" Expression="CONVERT(int,[work].[dbo].[_Document668].[_Posted],0)" />
+              <PlanAffectingConvert ConvertIssue="Cardinality Estimate" Expression="CONVERT(int,[work].[dbo].[_Document668].[_Marked],0)" />
+              <PlanAffectingConvert ConvertIssue="Cardinality Estimate" Expression="CONVERT(bit,[work].[dbo].[_Document668].[_Fld27346],0)" />
+              <PlanAffectingConvert ConvertIssue="Cardinality Estimate" Expression="CONVERT(varchar(max),[work].[dbo].[_Document668_VT18528].[_Fld18557_RRRef],2)" />
+              <PlanAffectingConvert ConvertIssue="Cardinality Estimate" Expression="CONVERT(varchar(max),[work].[dbo].[_Document668].[_IDRRef],2)" />
+              <PlanAffectingConvert ConvertIssue="Cardinality Estimate" Expression="CONVERT(varchar(max),[work].[dbo].[_Document668_VT18528].[_Document668_IDRRef],2)" />
+              <PlanAffectingConvert ConvertIssue="Cardinality Estimate" Expression="CONVERT(varchar(max),[work].[dbo].[_Document668].[_Fld18468RRef],2)" />
+              <PlanAffectingConvert ConvertIssue="Cardinality Estimate" Expression="CONVERT(varchar(max),[work].[dbo].[_Document668].[_Fld18470RRef],2)" />
+              <PlanAffectingConvert ConvertIssue="Seek Plan" Expression="CONVERT(int,[work].[dbo].[_Document668].[_Posted],0)=(1)" />
+              <PlanAffectingConvert ConvertIssue="Seek Plan" Expression="CONVERT(int,[work].[dbo].[_Document668].[_Marked],0)=(0)" />
+              <PlanAffectingConvert ConvertIssue="Seek Plan" Expression="CONVERT(bit,[work].[dbo].[_Document668].[_Fld27346],0)=(1)" />
+              <PlanAffectingConvert ConvertIssue="Seek Plan" Expression="CONVERT(varchar(max),[work].[dbo].[_Document668_VT18528].[_Fld18557_RRRef],2)&lt;'00000000000000000000000000000000'" />
+              <PlanAffectingConvert ConvertIssue="Seek Plan" Expression="CONVERT(varchar(max),[work].[dbo].[_Document668_VT18528].[_Fld18557_RRRef],2)&gt;'00000000000000000000000000000000'" />
+              <PlanAffectingConvert ConvertIssue="Seek Plan" Expression="CONVERT(varchar(max),[work].[dbo].[_Document668].[_IDRRef],2)=[Expr1041]" />
+            </Warnings>
+            <MemoryGrantInfo SerialRequiredMemory="1664" SerialDesiredMemory="97608" RequiredMemory="1664" DesiredMemory="97608" RequestedMemory="97608" GrantWaitTime="0" GrantedMemory="97608" MaxUsedMemory="63272" />
+            <OptimizerHardwareDependentProperties EstimatedAvailableMemoryGrant="313036" EstimatedPagesCached="78259" EstimatedAvailableDegreeOfParallelism="2" />
+            <RelOp NodeId="0" PhysicalOp="Table Insert" LogicalOp="Insert" EstimateRows="14095" EstimateIO="0.92166" EstimateCPU="0.014095" AvgRowSize="9" EstimatedTotalSubtreeCost="85.1012" Parallel="0" EstimateRebinds="0" EstimateRewinds="0" EstimatedExecutionMode="Row">
+              <OutputList />
+              <RunTimeInformation>
+                <RunTimeCountersPerThread Thread="0" ActualRows="1493" ActualEndOfScans="1" ActualExecutions="1" />
+              </RunTimeInformation>
+              <Update DMLRequestSort="0">
+                <Object Database="[tempdb]" Schema="[dbo]" Table="[#AllOrders]" IndexKind="Heap" />
+                <SetPredicate>
+                  <ScalarOperator ScalarString="[tempdb].[dbo].[#AllOrders].[OrderRef] = [Expr1035],[tempdb].[dbo].[#AllOrders].[TruckRef] = [Expr1036],[tempdb].[dbo].[#AllOrders].[DriverRef] = [Expr1037],[tempdb].[dbo].[#AllOrders].[StartResult] = [Expr1033],[tempdb].[dbo].[#AllOrders].[EndResult] = [Expr1034]">
+                    <ScalarExpressionList>
+                      <ScalarOperator>
+                        <MultipleAssign>
+                          <Assign>
+                            <ColumnReference Database="[tempdb]" Schema="[dbo]" Table="[#AllOrders]" Column="OrderRef" />
+                            <ScalarOperator>
+                              <Identifier>
+                                <ColumnReference Column="Expr1035" />
+                              </Identifier>
+                            </ScalarOperator>
+                          </Assign>
+                          <Assign>
+                            <ColumnReference Database="[tempdb]" Schema="[dbo]" Table="[#AllOrders]" Column="TruckRef" />
+                            <ScalarOperator>
+                              <Identifier>
+                                <ColumnReference Column="Expr1036" />
+                              </Identifier>
+                            </ScalarOperator>
+                          </Assign>
+                          <Assign>
+                            <ColumnReference Database="[tempdb]" Schema="[dbo]" Table="[#AllOrders]" Column="DriverRef" />
+                            <ScalarOperator>
+                              <Identifier>
+                                <ColumnReference Column="Expr1037" />
+                              </Identifier>
+                            </ScalarOperator>
+                          </Assign>
+                          <Assign>
+                            <ColumnReference Database="[tempdb]" Schema="[dbo]" Table="[#AllOrders]" Column="StartResult" />
+                            <ScalarOperator>
+                              <Identifier>
+                                <ColumnReference Column="Expr1033" />
+                              </Identifier>
+                            </ScalarOperator>
+                          </Assign>
+                          <Assign>
+                            <ColumnReference Database="[tempdb]" Schema="[dbo]" Table="[#AllOrders]" Column="EndResult" />
+                            <ScalarOperator>
+                              <Identifier>
+                                <ColumnReference Column="Expr1034" />
+                              </Identifier>
+                            </ScalarOperator>
+                          </Assign>
+                        </MultipleAssign>
+                      </ScalarOperator>
+                    </ScalarExpressionList>
+                  </ScalarOperator>
+                </SetPredicate>
+                <RelOp NodeId="1" PhysicalOp="Compute Scalar" LogicalOp="Compute Scalar" EstimateRows="14095" EstimateIO="0" EstimateCPU="0.0014095" AvgRowSize="79" EstimatedTotalSubtreeCost="84.1654" Parallel="0" EstimateRebinds="0" EstimateRewinds="0" EstimatedExecutionMode="Row">
+                  <OutputList>
+                    <ColumnReference Column="Expr1033" />
+                    <ColumnReference Column="Expr1034" />
+                    <ColumnReference Column="Expr1035" />
+                    <ColumnReference Column="Expr1036" />
+                    <ColumnReference Column="Expr1037" />
+                  </OutputList>
+                  <ComputeScalar>
+                    <DefinedValues>
+                      <DefinedValue>
+                        <ColumnReference Column="Expr1035" />
+                        <ScalarOperator ScalarString="CONVERT_IMPLICIT(varchar(50),[Expr1028],0)">
+                          <Convert DataType="varchar" Length="50" Style="0" Implicit="1">
+                            <ScalarOperator>
+                              <Identifier>
+                                <ColumnReference Column="Expr1028" />
+                              </Identifier>
+                            </ScalarOperator>
+                          </Convert>
+                        </ScalarOperator>
+                      </DefinedValue>
+                      <DefinedValue>
+                        <ColumnReference Column="Expr1036" />
+                        <ScalarOperator ScalarString="CONVERT_IMPLICIT(varchar(50),[Expr1011],0)">
+                          <Convert DataType="varchar" Length="50" Style="0" Implicit="1">
+                            <ScalarOperator>
+                              <Identifier>
+                                <ColumnReference Column="Expr1011" />
+                              </Identifier>
+                            </ScalarOperator>
+                          </Convert>
+                        </ScalarOperator>
+                      </DefinedValue>
+                      <DefinedValue>
+                        <ColumnReference Column="Expr1037" />
+                        <ScalarOperator ScalarString="CONVERT_IMPLICIT(varchar(50),[Expr1016],0)">
+                          <Convert DataType="varchar" Length="50" Style="0" Implicit="1">
+                            <ScalarOperator>
+                              <Identifier>
+                                <ColumnReference Column="Expr1016" />
+                              </Identifier>
+                            </ScalarOperator>
+                          </Convert>
+                        </ScalarOperator>
+                      </DefinedValue>
+                    </DefinedValues>
+                    <RelOp NodeId="2" PhysicalOp="Stream Aggregate" LogicalOp="Aggregate" EstimateRows="14095" EstimateIO="0" EstimateCPU="0.0155045" AvgRowSize="235" EstimatedTotalSubtreeCost="84.164" Parallel="0" EstimateRebinds="0" EstimateRewinds="0" EstimatedExecutionMode="Row">
+                      <OutputList>
+                        <ColumnReference Column="Expr1011" />
+                        <ColumnReference Column="Expr1016" />
+                        <ColumnReference Column="Expr1028" />
+                        <ColumnReference Column="Expr1033" />
+                        <ColumnReference Column="Expr1034" />
+                      </OutputList>
+                      <RunTimeInformation>
+                        <RunTimeCountersPerThread Thread="0" ActualRows="1493" ActualEndOfScans="1" ActualExecutions="1" />
+                      </RunTimeInformation>
+                      <StreamAggregate>
+                        <DefinedValues>
+                          <DefinedValue>
+                            <ColumnReference Column="Expr1033" />
+                            <ScalarOperator ScalarString="MIN([Expr1039])">
+                              <Aggregate Distinct="0" AggType="MIN">
+                                <ScalarOperator>
+                                  <Identifier>
+                                    <ColumnReference Column="Expr1039" />
+                                  </Identifier>
+                                </ScalarOperator>
+                              </Aggregate>
+                            </ScalarOperator>
+                          </DefinedValue>
+                          <DefinedValue>
+                            <ColumnReference Column="Expr1034" />
+                            <ScalarOperator ScalarString="MAX([Expr1040])">
+                              <Aggregate Distinct="0" AggType="MAX">
+                                <ScalarOperator>
+                                  <Identifier>
+                                    <ColumnReference Column="Expr1040" />
+                                  </Identifier>
+                                </ScalarOperator>
+                              </Aggregate>
+                            </ScalarOperator>
+                          </DefinedValue>
+                        </DefinedValues>
+                        <GroupBy>
+                          <ColumnReference Column="Expr1028" />
+                          <ColumnReference Column="Expr1011" />
+                          <ColumnReference Column="Expr1016" />
+                          <ColumnReference Column="Expr1007" />
+                        </GroupBy>
+                        <RelOp NodeId="3" PhysicalOp="Sort" LogicalOp="Sort" EstimateRows="14095" EstimateIO="0.0112613" EstimateCPU="0.891798" AvgRowSize="305" EstimatedTotalSubtreeCost="84.1485" Parallel="0" EstimateRebinds="0" EstimateRewinds="0" EstimatedExecutionMode="Row">
+                          <OutputList>
+                            <ColumnReference Column="Expr1007" />
+                            <ColumnReference Column="Expr1011" />
+                            <ColumnReference Column="Expr1016" />
+                            <ColumnReference Column="Expr1028" />
+                            <ColumnReference Column="Expr1039" />
+                            <ColumnReference Column="Expr1040" />
+                          </OutputList>
+                          <MemoryFractions Input="0.0640374" Output="1" />
+                          <RunTimeInformation>
+                            <RunTimeCountersPerThread Thread="0" ActualRows="3595" ActualRebinds="1" ActualRewinds="0" ActualEndOfScans="1" ActualExecutions="1" />
+                          </RunTimeInformation>
+                          <Sort Distinct="0">
+                            <OrderBy>
+                              <OrderByColumn Ascending="1">
+                                <ColumnReference Column="Expr1028" />
+                              </OrderByColumn>
+                              <OrderByColumn Ascending="1">
+                                <ColumnReference Column="Expr1011" />
+                              </OrderByColumn>
+                              <OrderByColumn Ascending="1">
+                                <ColumnReference Column="Expr1016" />
+                              </OrderByColumn>
+                              <OrderByColumn Ascending="1">
+                                <ColumnReference Column="Expr1007" />
+                              </OrderByColumn>
+                            </OrderBy>
+                            <RelOp NodeId="4" PhysicalOp="Hash Match" LogicalOp="Inner Join" EstimateRows="14095" EstimateIO="0" EstimateCPU="28.2017" AvgRowSize="305" EstimatedTotalSubtreeCost="83.2454" Parallel="0" EstimateRebinds="0" EstimateRewinds="0" EstimatedExecutionMode="Row">
+                              <OutputList>
+                                <ColumnReference Column="Expr1007" />
+                                <ColumnReference Column="Expr1011" />
+                                <ColumnReference Column="Expr1016" />
+                                <ColumnReference Column="Expr1028" />
+                                <ColumnReference Column="Expr1039" />
+                                <ColumnReference Column="Expr1040" />
+                              </OutputList>
+                              <MemoryFractions Input="0.10245" Output="0.0958893" />
+                              <RunTimeInformation>
+                                <RunTimeCountersPerThread Thread="0" ActualRows="3595" ActualEndOfScans="1" ActualExecutions="1" />
+                              </RunTimeInformation>
+                              <Hash>
+                                <DefinedValues />
+                                <HashKeysBuild>
+                                  <ColumnReference Column="Expr1007" />
+                                </HashKeysBuild>
+                                <HashKeysProbe>
+                                  <ColumnReference Column="Expr1041" />
+                                </HashKeysProbe>
+                                <ProbeResidual>
+                                  <ScalarOperator ScalarString="[Expr1007]=[Expr1041]">
+                                    <Compare CompareOp="EQ">
+                                      <ScalarOperator>
+                                        <Identifier>
+                                          <ColumnReference Column="Expr1007" />
+                                        </Identifier>
+                                      </ScalarOperator>
+                                      <ScalarOperator>
+                                        <Identifier>
+                                          <ColumnReference Column="Expr1041" />
+                                        </Identifier>
+                                      </ScalarOperator>
+                                    </Compare>
+                                  </ScalarOperator>
+                                </ProbeResidual>
+                                <RelOp NodeId="5" PhysicalOp="Compute Scalar" LogicalOp="Compute Scalar" EstimateRows="3185.41" EstimateIO="0" EstimateCPU="0.0086986" AvgRowSize="236" EstimatedTotalSubtreeCost="6.14989" Parallel="0" EstimateRebinds="0" EstimateRewinds="0" EstimatedExecutionMode="Row">
+                                  <OutputList>
+                                    <ColumnReference Column="Expr1007" />
+                                    <ColumnReference Column="Expr1011" />
+                                    <ColumnReference Column="Expr1016" />
+                                  </OutputList>
+                                  <ComputeScalar>
+                                    <DefinedValues>
+                                      <DefinedValue>
+                                        <ColumnReference Column="Expr1007" />
+                                        <ScalarOperator ScalarString="CONVERT(varchar(max),[work].[dbo].[_Document668].[_IDRRef],2)">
+                                          <Convert DataType="varchar(max)" Length="2147483647" Style="2" Implicit="0">
+                                            <ScalarOperator>
+                                              <Identifier>
+                                                <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668]" Column="_IDRRef" />
+                                              </Identifier>
+                                            </ScalarOperator>
+                                          </Convert>
+                                        </ScalarOperator>
+                                      </DefinedValue>
+                                      <DefinedValue>
+                                        <ColumnReference Column="Expr1011" />
+                                        <ScalarOperator ScalarString="CONVERT(varchar(max),[work].[dbo].[_Document668].[_Fld18468RRef],2)">
+                                          <Convert DataType="varchar(max)" Length="2147483647" Style="2" Implicit="0">
+                                            <ScalarOperator>
+                                              <Identifier>
+                                                <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668]" Column="_Fld18468RRef" />
+                                              </Identifier>
+                                            </ScalarOperator>
+                                          </Convert>
+                                        </ScalarOperator>
+                                      </DefinedValue>
+                                      <DefinedValue>
+                                        <ColumnReference Column="Expr1016" />
+                                        <ScalarOperator ScalarString="CONVERT(varchar(max),[work].[dbo].[_Document668].[_Fld18470RRef],2)">
+                                          <Convert DataType="varchar(max)" Length="2147483647" Style="2" Implicit="0">
+                                            <ScalarOperator>
+                                              <Identifier>
+                                                <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668]" Column="_Fld18470RRef" />
+                                              </Identifier>
+                                            </ScalarOperator>
+                                          </Convert>
+                                        </ScalarOperator>
+                                      </DefinedValue>
+                                    </DefinedValues>
+                                    <RelOp NodeId="6" PhysicalOp="Clustered Index Scan" LogicalOp="Clustered Index Scan" EstimateRows="3185.41" EstimateIO="6.04535" EstimateCPU="0.0958416" AvgRowSize="66" EstimatedTotalSubtreeCost="6.14119" TableCardinality="86986" Parallel="0" EstimateRebinds="0" EstimateRewinds="0" EstimatedExecutionMode="Row">
+                                      <OutputList>
+                                        <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668]" Column="_IDRRef" />
+                                        <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668]" Column="_Fld18468RRef" />
+                                        <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668]" Column="_Fld18470RRef" />
+                                      </OutputList>
+                                      <RunTimeInformation>
+                                        <RunTimeCountersPerThread Thread="0" ActualRows="1535" ActualEndOfScans="1" ActualExecutions="1" />
+                                      </RunTimeInformation>
+                                      <IndexScan Ordered="0" ForcedIndex="0" ForceScan="0" NoExpandHint="0">
+                                        <DefinedValues>
+                                          <DefinedValue>
+                                            <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668]" Column="_IDRRef" />
+                                          </DefinedValue>
+                                          <DefinedValue>
+                                            <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668]" Column="_Fld18468RRef" />
+                                          </DefinedValue>
+                                          <DefinedValue>
+                                            <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668]" Column="_Fld18470RRef" />
+                                          </DefinedValue>
+                                        </DefinedValues>
+                                        <Object Database="[work]" Schema="[dbo]" Table="[_Document668]" Index="[PK___Documen__AC8ED0C441AEE043]" IndexKind="Clustered" />
+                                        <Predicate>
+                                          <ScalarOperator ScalarString="CONVERT(int,[work].[dbo].[_Document668].[_Posted],0)=(1) AND CONVERT(int,[work].[dbo].[_Document668].[_Marked],0)=(0) AND CONVERT(bit,[work].[dbo].[_Document668].[_Fld27346],0)=(1) AND CASE WHEN [work].[dbo].[_Document668].[_Fld18479]&gt;'4001-01-01' THEN dateadd(year,(-2000),[work].[dbo].[_Document668].[_Fld18479]) ELSE [work].[dbo].[_Document668].[_Fld18479] END&gt;=[@StartDate]">
+                                            <Logical Operation="AND">
+                                              <ScalarOperator>
+                                                <Compare CompareOp="EQ">
+                                                  <ScalarOperator>
+                                                    <Convert DataType="int" Style="0" Implicit="0">
+                                                      <ScalarOperator>
+                                                        <Identifier>
+                                                          <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668]" Column="_Posted" />
+                                                        </Identifier>
+                                                      </ScalarOperator>
+                                                    </Convert>
+                                                  </ScalarOperator>
+                                                  <ScalarOperator>
+                                                    <Const ConstValue="(1)" />
+                                                  </ScalarOperator>
+                                                </Compare>
+                                              </ScalarOperator>
+                                              <ScalarOperator>
+                                                <Compare CompareOp="EQ">
+                                                  <ScalarOperator>
+                                                    <Convert DataType="int" Style="0" Implicit="0">
+                                                      <ScalarOperator>
+                                                        <Identifier>
+                                                          <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668]" Column="_Marked" />
+                                                        </Identifier>
+                                                      </ScalarOperator>
+                                                    </Convert>
+                                                  </ScalarOperator>
+                                                  <ScalarOperator>
+                                                    <Const ConstValue="(0)" />
+                                                  </ScalarOperator>
+                                                </Compare>
+                                              </ScalarOperator>
+                                              <ScalarOperator>
+                                                <Compare CompareOp="EQ">
+                                                  <ScalarOperator>
+                                                    <Convert DataType="bit" Style="0" Implicit="0">
+                                                      <ScalarOperator>
+                                                        <Identifier>
+                                                          <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668]" Column="_Fld27346" />
+                                                        </Identifier>
+                                                      </ScalarOperator>
+                                                    </Convert>
+                                                  </ScalarOperator>
+                                                  <ScalarOperator>
+                                                    <Const ConstValue="(1)" />
+                                                  </ScalarOperator>
+                                                </Compare>
+                                              </ScalarOperator>
+                                              <ScalarOperator>
+                                                <Compare CompareOp="GE">
+                                                  <ScalarOperator>
+                                                    <IF>
+                                                      <Condition>
+                                                        <ScalarOperator>
+                                                          <Compare CompareOp="GT">
+                                                            <ScalarOperator>
+                                                              <Identifier>
+                                                                <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668]" Column="_Fld18479" />
+                                                              </Identifier>
+                                                            </ScalarOperator>
+                                                            <ScalarOperator>
+                                                              <Const ConstValue="'4001-01-01'" />
+                                                            </ScalarOperator>
+                                                          </Compare>
+                                                        </ScalarOperator>
+                                                      </Condition>
+                                                      <Then>
+                                                        <ScalarOperator>
+                                                          <Intrinsic FunctionName="dateadd">
+                                                            <ScalarOperator>
+                                                              <Const ConstValue="(0)" />
+                                                            </ScalarOperator>
+                                                            <ScalarOperator>
+                                                              <Const ConstValue="(-2000)" />
+                                                            </ScalarOperator>
+                                                            <ScalarOperator>
+                                                              <Identifier>
+                                                                <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668]" Column="_Fld18479" />
+                                                              </Identifier>
+                                                            </ScalarOperator>
+                                                          </Intrinsic>
+                                                        </ScalarOperator>
+                                                      </Then>
+                                                      <Else>
+                                                        <ScalarOperator>
+                                                          <Identifier>
+                                                            <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668]" Column="_Fld18479" />
+                                                          </Identifier>
+                                                        </ScalarOperator>
+                                                      </Else>
+                                                    </IF>
+                                                  </ScalarOperator>
+                                                  <ScalarOperator>
+                                                    <Identifier>
+                                                      <ColumnReference Column="@StartDate" />
+                                                    </Identifier>
+                                                  </ScalarOperator>
+                                                </Compare>
+                                              </ScalarOperator>
+                                            </Logical>
+                                          </ScalarOperator>
+                                        </Predicate>
+                                      </IndexScan>
+                                    </RelOp>
+                                  </ComputeScalar>
+                                </RelOp>
+                                <RelOp NodeId="14" PhysicalOp="Compute Scalar" LogicalOp="Compute Scalar" EstimateRows="364446" EstimateIO="0" EstimateCPU="0.0364446" AvgRowSize="165" EstimatedTotalSubtreeCost="48.7651" Parallel="0" EstimateRebinds="0" EstimateRewinds="0" EstimatedExecutionMode="Row">
+                                  <OutputList>
+                                    <ColumnReference Column="Expr1028" />
+                                    <ColumnReference Column="Expr1039" />
+                                    <ColumnReference Column="Expr1040" />
+                                    <ColumnReference Column="Expr1041" />
+                                  </OutputList>
+                                  <ComputeScalar>
+                                    <DefinedValues>
+                                      <DefinedValue>
+                                        <ColumnReference Column="Expr1028" />
+                                        <ScalarOperator ScalarString="CONVERT(varchar(max),[work].[dbo].[_Document668_VT18528].[_Fld18557_RRRef],2)">
+                                          <Convert DataType="varchar(max)" Length="2147483647" Style="2" Implicit="0">
+                                            <ScalarOperator>
+                                              <Identifier>
+                                                <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18557_RRRef" />
+                                              </Identifier>
+                                            </ScalarOperator>
+                                          </Convert>
+                                        </ScalarOperator>
+                                      </DefinedValue>
+                                      <DefinedValue>
+                                        <ColumnReference Column="Expr1039" />
+                                        <ScalarOperator ScalarString="CASE WHEN [work].[dbo].[_Document668_VT18528].[_Fld18538]&gt;='4001-01-01' THEN dateadd(year,(-2000),[work].[dbo].[_Document668_VT18528].[_Fld18538]) ELSE NULL END">
+                                          <IF>
+                                            <Condition>
+                                              <ScalarOperator>
+                                                <Compare CompareOp="GE">
+                                                  <ScalarOperator>
+                                                    <Identifier>
+                                                      <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18538" />
+                                                    </Identifier>
+                                                  </ScalarOperator>
+                                                  <ScalarOperator>
+                                                    <Const ConstValue="'4001-01-01'" />
+                                                  </ScalarOperator>
+                                                </Compare>
+                                              </ScalarOperator>
+                                            </Condition>
+                                            <Then>
+                                              <ScalarOperator>
+                                                <Intrinsic FunctionName="dateadd">
+                                                  <ScalarOperator>
+                                                    <Const ConstValue="(0)" />
+                                                  </ScalarOperator>
+                                                  <ScalarOperator>
+                                                    <Const ConstValue="(-2000)" />
+                                                  </ScalarOperator>
+                                                  <ScalarOperator>
+                                                    <Identifier>
+                                                      <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18538" />
+                                                    </Identifier>
+                                                  </ScalarOperator>
+                                                </Intrinsic>
+                                              </ScalarOperator>
+                                            </Then>
+                                            <Else>
+                                              <ScalarOperator>
+                                                <Const ConstValue="NULL" />
+                                              </ScalarOperator>
+                                            </Else>
+                                          </IF>
+                                        </ScalarOperator>
+                                      </DefinedValue>
+                                      <DefinedValue>
+                                        <ColumnReference Column="Expr1040" />
+                                        <ScalarOperator ScalarString="CASE WHEN [work].[dbo].[_Document668_VT18528].[_Fld18539]&gt;='4001-01-01' THEN dateadd(year,(-2000),[work].[dbo].[_Document668_VT18528].[_Fld18539]) ELSE NULL END">
+                                          <IF>
+                                            <Condition>
+                                              <ScalarOperator>
+                                                <Compare CompareOp="GE">
+                                                  <ScalarOperator>
+                                                    <Identifier>
+                                                      <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18539" />
+                                                    </Identifier>
+                                                  </ScalarOperator>
+                                                  <ScalarOperator>
+                                                    <Const ConstValue="'4001-01-01'" />
+                                                  </ScalarOperator>
+                                                </Compare>
+                                              </ScalarOperator>
+                                            </Condition>
+                                            <Then>
+                                              <ScalarOperator>
+                                                <Intrinsic FunctionName="dateadd">
+                                                  <ScalarOperator>
+                                                    <Const ConstValue="(0)" />
+                                                  </ScalarOperator>
+                                                  <ScalarOperator>
+                                                    <Const ConstValue="(-2000)" />
+                                                  </ScalarOperator>
+                                                  <ScalarOperator>
+                                                    <Identifier>
+                                                      <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18539" />
+                                                    </Identifier>
+                                                  </ScalarOperator>
+                                                </Intrinsic>
+                                              </ScalarOperator>
+                                            </Then>
+                                            <Else>
+                                              <ScalarOperator>
+                                                <Const ConstValue="NULL" />
+                                              </ScalarOperator>
+                                            </Else>
+                                          </IF>
+                                        </ScalarOperator>
+                                      </DefinedValue>
+                                      <DefinedValue>
+                                        <ColumnReference Column="Expr1041" />
+                                        <ScalarOperator ScalarString="CONVERT(varchar(max),[work].[dbo].[_Document668_VT18528].[_Document668_IDRRef],2)">
+                                          <Convert DataType="varchar(max)" Length="2147483647" Style="2" Implicit="0">
+                                            <ScalarOperator>
+                                              <Identifier>
+                                                <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Document668_IDRRef" />
+                                              </Identifier>
+                                            </ScalarOperator>
+                                          </Convert>
+                                        </ScalarOperator>
+                                      </DefinedValue>
+                                    </DefinedValues>
+                                    <RelOp NodeId="15" PhysicalOp="Sort" LogicalOp="Distinct Sort" EstimateRows="364446" EstimateIO="0.0112613" EstimateCPU="30.9058" AvgRowSize="55" EstimatedTotalSubtreeCost="48.7286" Parallel="0" EstimateRebinds="0" EstimateRewinds="0" EstimatedExecutionMode="Row">
+                                      <OutputList>
+                                        <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Document668_IDRRef" />
+                                        <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18538" />
+                                        <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18539" />
+                                        <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18557_RRRef" />
+                                      </OutputList>
+                                      <MemoryFractions Input="0.89755" Output="0.840073" />
+                                      <RunTimeInformation>
+                                        <RunTimeCountersPerThread Thread="0" ActualRows="355054" ActualRebinds="1" ActualRewinds="0" ActualEndOfScans="1" ActualExecutions="1" />
+                                      </RunTimeInformation>
+                                      <Sort Distinct="1">
+                                        <OrderBy>
+                                          <OrderByColumn Ascending="1">
+                                            <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18535RRef" />
+                                          </OrderByColumn>
+                                          <OrderByColumn Ascending="1">
+                                            <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18557_RRRef" />
+                                          </OrderByColumn>
+                                          <OrderByColumn Ascending="1">
+                                            <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18558RRef" />
+                                          </OrderByColumn>
+                                          <OrderByColumn Ascending="1">
+                                            <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Document668_IDRRef" />
+                                          </OrderByColumn>
+                                          <OrderByColumn Ascending="1">
+                                            <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18559" />
+                                          </OrderByColumn>
+                                          <OrderByColumn Ascending="1">
+                                            <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18560" />
+                                          </OrderByColumn>
+                                          <OrderByColumn Ascending="1">
+                                            <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18564" />
+                                          </OrderByColumn>
+                                          <OrderByColumn Ascending="1">
+                                            <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18565" />
+                                          </OrderByColumn>
+                                          <OrderByColumn Ascending="1">
+                                            <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18566" />
+                                          </OrderByColumn>
+                                          <OrderByColumn Ascending="1">
+                                            <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld26807" />
+                                          </OrderByColumn>
+                                          <OrderByColumn Ascending="1">
+                                            <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18561" />
+                                          </OrderByColumn>
+                                          <OrderByColumn Ascending="1">
+                                            <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18539" />
+                                          </OrderByColumn>
+                                          <OrderByColumn Ascending="1">
+                                            <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18538" />
+                                          </OrderByColumn>
+                                          <OrderByColumn Ascending="1">
+                                            <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18530" />
+                                          </OrderByColumn>
+                                          <OrderByColumn Ascending="1">
+                                            <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_LineNo18529" />
+                                          </OrderByColumn>
+                                        </OrderBy>
+                                        <RelOp NodeId="16" PhysicalOp="Filter" LogicalOp="Filter" EstimateRows="364446" EstimateIO="0" EstimateCPU="0.182277" AvgRowSize="141" EstimatedTotalSubtreeCost="17.8116" Parallel="0" EstimateRebinds="0" EstimateRewinds="0" EstimatedExecutionMode="Row">
+                                          <OutputList>
+                                            <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Document668_IDRRef" />
+                                            <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_LineNo18529" />
+                                            <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18530" />
+                                            <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18535RRef" />
+                                            <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18538" />
+                                            <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18539" />
+                                            <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18557_RRRef" />
+                                            <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18558RRef" />
+                                            <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18559" />
+                                            <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18560" />
+                                            <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18561" />
+                                            <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18564" />
+                                            <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18565" />
+                                            <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18566" />
+                                            <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld26807" />
+                                          </OutputList>
+                                          <RunTimeInformation>
+                                            <RunTimeCountersPerThread Thread="0" ActualRows="355054" ActualEndOfScans="1" ActualExecutions="1" />
+                                          </RunTimeInformation>
+                                          <Filter StartupExpression="0">
+                                            <RelOp NodeId="17" PhysicalOp="Compute Scalar" LogicalOp="Compute Scalar" EstimateRows="379743" EstimateIO="0" EstimateCPU="0.0379743" AvgRowSize="211" EstimatedTotalSubtreeCost="17.6293" Parallel="0" EstimateRebinds="0" EstimateRewinds="0" EstimatedExecutionMode="Row">
+                                              <OutputList>
+                                                <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Document668_IDRRef" />
+                                                <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_LineNo18529" />
+                                                <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18530" />
+                                                <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18535RRef" />
+                                                <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18538" />
+                                                <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18539" />
+                                                <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18557_RRRef" />
+                                                <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18558RRef" />
+                                                <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18559" />
+                                                <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18560" />
+                                                <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18561" />
+                                                <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18564" />
+                                                <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18565" />
+                                                <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18566" />
+                                                <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld26807" />
+                                                <ColumnReference Column="Expr1046" />
+                                              </OutputList>
+                                              <ComputeScalar>
+                                                <DefinedValues>
+                                                  <DefinedValue>
+                                                    <ColumnReference Column="Expr1046" />
+                                                    <ScalarOperator ScalarString="CONVERT(varchar(max),[work].[dbo].[_Document668_VT18528].[_Fld18557_RRRef],2)">
+                                                      <Convert DataType="varchar(max)" Length="2147483647" Style="2" Implicit="0">
+                                                        <ScalarOperator>
+                                                          <Identifier>
+                                                            <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18557_RRRef" />
+                                                          </Identifier>
+                                                        </ScalarOperator>
+                                                      </Convert>
+                                                    </ScalarOperator>
+                                                  </DefinedValue>
+                                                </DefinedValues>
+                                                <RelOp NodeId="18" PhysicalOp="Clustered Index Scan" LogicalOp="Clustered Index Scan" EstimateRows="379743" EstimateIO="17.1735" EstimateCPU="0.417874" AvgRowSize="141" EstimatedTotalSubtreeCost="17.5914" TableCardinality="379743" Parallel="0" EstimateRebinds="0" EstimateRewinds="0" EstimatedExecutionMode="Row">
+                                                  <OutputList>
+                                                    <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Document668_IDRRef" />
+                                                    <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_LineNo18529" />
+                                                    <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18530" />
+                                                    <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18535RRef" />
+                                                    <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18538" />
+                                                    <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18539" />
+                                                    <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18557_RRRef" />
+                                                    <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18558RRef" />
+                                                    <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18559" />
+                                                    <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18560" />
+                                                    <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18561" />
+                                                    <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18564" />
+                                                    <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18565" />
+                                                    <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18566" />
+                                                    <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld26807" />
+                                                  </OutputList>
+                                                  <RunTimeInformation>
+                                                    <RunTimeCountersPerThread Thread="0" ActualRows="379743" ActualEndOfScans="1" ActualExecutions="1" />
+                                                  </RunTimeInformation>
+                                                  <IndexScan Ordered="0" ForcedIndex="0" ForceScan="0" NoExpandHint="0">
+                                                    <DefinedValues>
+                                                      <DefinedValue>
+                                                        <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Document668_IDRRef" />
+                                                      </DefinedValue>
+                                                      <DefinedValue>
+                                                        <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_LineNo18529" />
+                                                      </DefinedValue>
+                                                      <DefinedValue>
+                                                        <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18530" />
+                                                      </DefinedValue>
+                                                      <DefinedValue>
+                                                        <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18535RRef" />
+                                                      </DefinedValue>
+                                                      <DefinedValue>
+                                                        <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18538" />
+                                                      </DefinedValue>
+                                                      <DefinedValue>
+                                                        <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18539" />
+                                                      </DefinedValue>
+                                                      <DefinedValue>
+                                                        <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18557_RRRef" />
+                                                      </DefinedValue>
+                                                      <DefinedValue>
+                                                        <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18558RRef" />
+                                                      </DefinedValue>
+                                                      <DefinedValue>
+                                                        <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18559" />
+                                                      </DefinedValue>
+                                                      <DefinedValue>
+                                                        <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18560" />
+                                                      </DefinedValue>
+                                                      <DefinedValue>
+                                                        <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18561" />
+                                                      </DefinedValue>
+                                                      <DefinedValue>
+                                                        <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18564" />
+                                                      </DefinedValue>
+                                                      <DefinedValue>
+                                                        <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18565" />
+                                                      </DefinedValue>
+                                                      <DefinedValue>
+                                                        <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld18566" />
+                                                      </DefinedValue>
+                                                      <DefinedValue>
+                                                        <ColumnReference Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Column="_Fld26807" />
+                                                      </DefinedValue>
+                                                    </DefinedValues>
+                                                    <Object Database="[work]" Schema="[dbo]" Table="[_Document668_VT18528]" Index="[_Document668_VT18528_IntKeyInd]" IndexKind="Clustered" />
+                                                  </IndexScan>
+                                                </RelOp>
+                                              </ComputeScalar>
+                                            </RelOp>
+                                            <Predicate>
+                                              <ScalarOperator ScalarString="[Expr1046]&lt;&gt;'00000000000000000000000000000000'">
+                                                <Compare CompareOp="NE">
+                                                  <ScalarOperator>
+                                                    <Identifier>
+                                                      <ColumnReference Column="Expr1046" />
+                                                    </Identifier>
+                                                  </ScalarOperator>
+                                                  <ScalarOperator>
+                                                    <Const ConstValue="'00000000000000000000000000000000'" />
+                                                  </ScalarOperator>
+                                                </Compare>
+                                              </ScalarOperator>
+                                            </Predicate>
+                                          </Filter>
+                                        </RelOp>
+                                      </Sort>
+                                    </RelOp>
+                                  </ComputeScalar>
+                                </RelOp>
+                              </Hash>
+                            </RelOp>
+                          </Sort>
+                        </RelOp>
+                      </StreamAggregate>
+                    </RelOp>
+                  </ComputeScalar>
+                </RelOp>
+              </Update>
+            </RelOp>
+            <ParameterList>
+              <ColumnReference Column="@StartDate" ParameterRuntimeValue="'2026-06-01 00:00:00.000'" />
+            </ParameterList>
+          </QueryPlan>
+        </StmtSimple>
+      </Statements>
+    </Batch>
+  </BatchSequence>
+</ShowPlanXML>
