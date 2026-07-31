@@ -17,7 +17,7 @@ WITH cte_DriverClasses AS (
             PARTITION BY _Fld33135RRef, _Fld33136RRef
             ORDER BY _Period DESC
         ) AS RN
-    FROM _InfoRg33134 CL -- класи водіїв
+    FROM _InfoRg33134 CL -- пїЅпїЅпїЅпїЅпїЅ пїЅпїЅдіїпїЅ
 ),
 cte_RateClasses AS (
     SELECT 
@@ -29,7 +29,7 @@ cte_RateClasses AS (
                 _InfoRg33137._Fld33138RRef
             ORDER BY _Period DESC
         ) AS rn
-    FROM _InfoRg33137 -- тариф по класу
+    FROM _InfoRg33137 -- пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 	WHERE
 	CONVERT(VARCHAR(MAX), _InfoRg33137._Fld33139RRef, 2) = '9F700416C8172D6D434B867B43C82D1F' AND
 	_InfoRg33137._Fld33214RRef = 0x00000000000000000000000000000000
@@ -51,8 +51,16 @@ inner JOIN _Reference33129 ClassDesc ON CONVERT(VARCHAR(MAX), ClassDesc._IDRRef,
 inner JOIN cte_RateClasses ON cte_RateClasses.Class = cte_DriverClasses.Class
 inner JOIN pbi.v_DimRatesBI dr ON (dr.Dates =  cte_DriverClasses.[Period])
 							and (dr.CurrencyRef = cte_RateClasses.Currency)
-INNER JOIN pbi.v_DriverTax dt ON (cte_DriverClasses.Class = '924F02B31CC3E40111EFA648B0A9D130' and dt.Num = 2)  
-								 or (cte_DriverClasses.Class <> '924F02B31CC3E40111EFA648B0A9D130' and dt.Num = 1)
+CROSS APPLY (
+    SELECT TOP 1 t.TaxSum
+    FROM pbi.v_DriverTax t
+    WHERE t.PeriodStart <= cte_DriverClasses.[Period]
+      AND (
+          (cte_DriverClasses.Class = '924F02B31CC3E40111EFA648B0A9D130' AND t.Num = 2)  
+          OR (cte_DriverClasses.Class <> '924F02B31CC3E40111EFA648B0A9D130' AND t.Num = 1)
+      )
+    ORDER BY t.PeriodStart DESC
+) dt
 
 WHERE cte_DriverClasses.rn = 1 AND cte_RateClasses.rn = 1
 

@@ -9,16 +9,13 @@ GO
 
 Create view pbi.v_DriverTax AS
 
-select 
-	_Code as TaxName,
-	case 
-		when CONVERT(VARCHAR(MAX), _IDRRef, 2) = 'B98502B31CC3E40111EE1A29D2FD7ACA' then 1
-		when CONVERT(VARCHAR(MAX), _IDRRef, 2) = '924F02B31CC3E40111EFA6565A2AB000' then 2
-		else 0 end as Num,
-	_Fld32492_N as TaxSum
-
-from _Reference32491
-where CONVERT(VARCHAR(MAX), _IDRRef, 2) in ('B98502B31CC3E40111EE1A29D2FD7ACA', '924F02B31CC3E40111EFA6565A2AB000')
+SELECT TaxName, Num, TaxSum, PeriodStart
+FROM (VALUES
+    (N'МесячнаяСуммаНалоговВодителя',        1,  9856.50, CAST('2023-01-01' AS DATE)),
+    (N'МесячнаяСуммаНалоговВодителяТримекс', 2,   958.20, CAST('2023-01-01' AS DATE)),
+    (N'МесячнаяСуммаНалоговВодителя',        1, 12203.29, CAST('2026-07-01' AS DATE)),
+    (N'МесячнаяСуммаНалоговВодителяТримекс', 2,   958.20, CAST('2026-07-01' AS DATE))
+) AS t(TaxName, Num, TaxSum, PeriodStart)
 go
 
 
@@ -32,14 +29,11 @@ GO
 
 Create view pbi.vb_DriverTax AS
 
-select 
-	_Code as TaxName,
-	case 
-		when _IDRRef = 0xB98502B31CC3E40111EE1A29D2FD7ACA then 1
-		when _IDRRef = 0x924F02B31CC3E40111EFA6565A2AB000 then 2
-		else 0 end as Num,
-	_Fld32492_N as TaxSum
-
-from _Reference32491
-where _IDRRef in (0xB98502B31CC3E40111EE1A29D2FD7ACA, 0x924F02B31CC3E40111EFA6565A2AB000)
+SELECT TaxName, Num, TaxSum, PeriodStart
+FROM (VALUES
+    (N'МесячнаяСуммаНалоговВодителя',        1,  9856.50, CAST('2023-01-01' AS DATE)),
+    (N'МесячнаяСуммаНалоговВодителяТримекс', 2,   958.20, CAST('2023-01-01' AS DATE)),
+    (N'МесячнаяСуммаНалоговВодителя',        1, 12203.29, CAST('2026-07-01' AS DATE)),
+    (N'МесячнаяСуммаНалоговВодителяТримекс', 2,   958.20, CAST('2026-07-01' AS DATE))
+) AS t(TaxName, Num, TaxSum, PeriodStart)
 go
