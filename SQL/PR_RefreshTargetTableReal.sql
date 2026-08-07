@@ -1,4 +1,4 @@
--- exec work.pbi.RefreshTargetTableReal '20260101'
+-- exec work.pbi.RefreshTargetTableReal '20260601'
 -- select * from pbi.TargetTableReal where TargetDate >= '20260601' order by TruckRef, TargetDate
 
 IF EXISTS (SELECT * FROM sys.procedures WHERE name = 'RefreshTargetTableReal' AND SCHEMA_NAME(schema_id) = 'pbi')
@@ -16,6 +16,9 @@ BEGIN
 
     -- =============================================
     -- 1. AllOrders из путевых листов
+    --    Заявка подходит, если среди ВСЕХ её ПЛ (любая дата)
+    --    есть хотя бы один закрытый без флага:
+    --    DateRouteEnd IS NOT NULL AND RouteIsInProgress = 0
     -- =============================================
     IF OBJECT_ID('tempdb..#AllOrders') IS NOT NULL DROP TABLE #AllOrders;
 
@@ -35,6 +38,14 @@ BEGIN
     INNER JOIN pbi.vb_RouteSheetTask t ON t.RouteSheetRef = r.RouteSheetRef
     WHERE t.OrderRef <> 0x00000000000000000000000000000000
       AND r.DateRouteEnd >= @StartDate
+      AND t.OrderRef IN (
+          SELECT t2.OrderRef
+          FROM pbi.vb_RouteSheet r2
+          INNER JOIN pbi.vb_RouteSheetTask t2 ON t2.RouteSheetRef = r2.RouteSheetRef
+          WHERE t2.OrderRef <> 0x00000000000000000000000000000000
+          GROUP BY t2.OrderRef
+          HAVING MAX(CASE WHEN r2.DateRouteEnd IS NOT NULL AND r2.RouteIsInProgress = 0 THEN 1 ELSE 0 END) = 1
+      )
     GROUP BY t.OrderRef, r.TruckRef, r.DriverRef, r.RouteSheetRef;
 
     CREATE INDEX IX_AO_Order ON #AllOrders(OrderRef);
@@ -116,7 +127,42 @@ BEGIN
     CREATE INDEX IX_St_Truck_Date ON #Statements(TruckRef, CalDate);
 
     -- =============================================
-    -- 4. TargetTable
+    -- 4. FactRows / FactSplit (источники из TargetTableFact)
+    -- =============================================
+    IF OBJECT_ID('tempdb..#FactRows') IS NOT NULL DROP TABLE #FactRows;
+
+    SELECT
+        CONVERT(binary(16), f.TruckRef, 2) AS TruckRef,
+        f.TargetDate,
+        CONVERT(binary(16), f.OrderRef, 2) AS OrderRef,
+        CONVERT(binary(16), f.DriverRef, 2) AS DriverRef,
+        CONVERT(binary(16), f.StatementRef, 2) AS StatementRef,
+        f.DayPart,
+        f.IncomePerDay,
+        f.DriverSalaryPerDay,
+        ROW_NUMBER() OVER(PARTITION BY CONVERT(binary(16), f.TruckRef, 2), f.TargetDate ORDER BY f.DayPart DESC, f.OrderRef) AS RN
+    INTO #FactRows
+    FROM pbi.TargetTableFact f
+    WHERE f.TargetDate >= @StartDate;
+
+    CREATE INDEX IX_FR_Truck_Date ON #FactRows(TruckRef, TargetDate) INCLUDE(OrderRef, DriverRef, StatementRef, DayPart, IncomePerDay, DriverSalaryPerDay, RN);
+    CREATE INDEX IX_FR_Order ON #FactRows(OrderRef, TargetDate);
+
+    IF OBJECT_ID('tempdb..#FactSplit') IS NOT NULL DROP TABLE #FactSplit;
+
+    SELECT
+        CONVERT(binary(16), s.OrderRef, 2) AS OrderRef,
+        s.FuelExpTotal, s.AdBlueExpTotal, s.RoadTaxExpTotal,
+        s.WashingExpTotal, s.CustomsDutyExpTotal, s.ParkingExpTotal,
+        s.FineExpTotal, s.OtherExpTotal
+    INTO #FactSplit
+    FROM pbi.TargetTableFactSplit s
+    WHERE s.OrderRef IS NOT NULL;
+
+    CREATE CLUSTERED INDEX IX_FS_Order ON #FactSplit(OrderRef);
+
+    -- =============================================
+    -- 5. TargetTable
     -- =============================================
     IF OBJECT_ID('tempdb..#TargetTable') IS NOT NULL DROP TABLE #TargetTable;
 
@@ -130,15 +176,24 @@ BEGIN
         DurationStatement BIT NOT NULL DEFAULT 1,
         DayPart           NUMERIC(10,2) NOT NULL DEFAULT 0.0,
         IncomePerDay      NUMERIC(10,4) NOT NULL DEFAULT 0.0,
-        FuelExpPerDay     NUMERIC(10,4) NOT NULL DEFAULT 0.0,
-        AdBlueExpPerDay   NUMERIC(10,4) NOT NULL DEFAULT 0.0,
-        RoadTaxExpPerDay  NUMERIC(10,4) NOT NULL DEFAULT 0.0,
-        DriverSalaryExpPerDay NUMERIC(10,4) NOT NULL DEFAULT 0.0,
-        WashingExpPerDay  NUMERIC(10,4) NOT NULL DEFAULT 0.0,
-        CustomsDutyExpPerDay NUMERIC(10,4) NOT NULL DEFAULT 0.0,
-        ParkingExpPerDay  NUMERIC(10,4) NOT NULL DEFAULT 0.0,
-        FineExpPerDay     NUMERIC(10,4) NOT NULL DEFAULT 0.0,
-        OtherExpPerDay    NUMERIC(10,4) NOT NULL DEFAULT 0.0,
+        RealFuelExpPerDay     NUMERIC(10,4) NOT NULL DEFAULT 0.0,
+        RealAdBlueExpPerDay   NUMERIC(10,4) NOT NULL DEFAULT 0.0,
+        RealRoadTaxExpPerDay  NUMERIC(10,4) NOT NULL DEFAULT 0.0,
+        RealDriverSalaryExpPerDay NUMERIC(10,4) NOT NULL DEFAULT 0.0,
+        RealWashingExpPerDay  NUMERIC(10,4) NOT NULL DEFAULT 0.0,
+        RealCustomsDutyExpPerDay NUMERIC(10,4) NOT NULL DEFAULT 0.0,
+        RealParkingExpPerDay  NUMERIC(10,4) NOT NULL DEFAULT 0.0,
+        RealFineExpPerDay     NUMERIC(10,4) NOT NULL DEFAULT 0.0,
+        RealOtherExpPerDay    NUMERIC(10,4) NOT NULL DEFAULT 0.0,
+        FactFuelExpPerDay     NUMERIC(10,4) NOT NULL DEFAULT 0.0,
+        FactAdBlueExpPerDay   NUMERIC(10,4) NOT NULL DEFAULT 0.0,
+        FactRoadTaxExpPerDay  NUMERIC(10,4) NOT NULL DEFAULT 0.0,
+        FactWashingExpPerDay  NUMERIC(10,4) NOT NULL DEFAULT 0.0,
+        FactCustomsDutyExpPerDay NUMERIC(10,4) NOT NULL DEFAULT 0.0,
+        FactParkingExpPerDay  NUMERIC(10,4) NOT NULL DEFAULT 0.0,
+        FactFineExpPerDay     NUMERIC(10,4) NOT NULL DEFAULT 0.0,
+        FactOtherExpPerDay    NUMERIC(10,4) NOT NULL DEFAULT 0.0,
+        FactDriverSalaryPerDay NUMERIC(10,4) NOT NULL DEFAULT 0.0,
         MarginPerDay      NUMERIC(10,4) NOT NULL DEFAULT 0.0,
         BreakEvenPointPerDay NUMERIC(10,4) NOT NULL DEFAULT 0.0,
         QuotaPerDay       NUMERIC(10,4) NOT NULL DEFAULT 0.0,
@@ -164,14 +219,14 @@ BEGIN
     CREATE INDEX IX_TT_Truck_Date ON #TargetTable(TruckRef, TargetDate);
 
     -- =============================================
-    -- 5. StatementRef
+    -- 6. StatementRef
     -- =============================================
     UPDATE tt SET tt.StatementRef = s.StatusRef
     FROM #TargetTable tt
     INNER JOIN #Statements s ON s.TruckRef = tt.TruckRef AND s.CalDate = tt.TargetDate;
 
     -- =============================================
-    -- 6. MainManagerRef
+    -- 7. MainManagerRef
     -- =============================================
     UPDATE tt SET tt.MainManagerRef = m.ManagerRef
     FROM #TargetTable tt
@@ -183,14 +238,14 @@ BEGIN
     ) m;
 
     -- =============================================
-    -- 7. CurManagerRef
+    -- 8. CurManagerRef
     -- =============================================
     UPDATE tt SET tt.CurManagerRef = do.ManagerReff
     FROM #TargetTable tt
     INNER JOIN #DimOrders do ON do.OrderRef = tt.OrderRef;
 
     -- =============================================
-    -- 8. IsPaidStatement, DurationStatement
+    -- 9. IsPaidStatement, DurationStatement (до DayPart/#OrderWeight)
     -- =============================================
     UPDATE tt
     SET tt.IsPaidStatement = CASE WHEN ST.StatementType4 = N'Без оплати' THEN 0 ELSE 1 END,
@@ -199,7 +254,7 @@ BEGIN
     LEFT JOIN pbi.vb_StatementType ST ON ST.StatementTypeRef = tt.StatementRef;
 
     -- =============================================
-    -- 9. DayPart
+    -- 10. DayPart
     -- =============================================
     UPDATE tt SET tt.DayPart = 1.0 / td.Cnt
     FROM #TargetTable tt
@@ -209,7 +264,7 @@ BEGIN
     ) td ON td.TruckRef = tt.TruckRef AND td.TargetDate = tt.TargetDate;
 
     -- =============================================
-    -- 10. OrderWeight
+    -- 11. OrderWeight (по реальным заказам, ДО backfill)
     -- =============================================
     IF OBJECT_ID('tempdb..#OrderWeight') IS NOT NULL DROP TABLE #OrderWeight;
 
@@ -218,7 +273,7 @@ BEGIN
     FROM #TargetTable GROUP BY OrderRef;
 
     -- =============================================
-    -- 11. IncomePerDay
+    -- 12. IncomePerDay (реальный доход)
     -- =============================================
     UPDATE tt
     SET tt.IncomePerDay = 
@@ -231,7 +286,7 @@ BEGIN
     LEFT JOIN #OrderCost oc ON oc.OrderRef = tt.OrderRef;
 
     -- =============================================
-    -- 12. Расходы из vb_Expenses
+    -- 12. Реальные расходы из vb_Expenses
     -- =============================================
     IF OBJECT_ID('tempdb..#ExpensesByOrder') IS NOT NULL DROP TABLE #ExpensesByOrder;
 
@@ -265,25 +320,56 @@ BEGIN
     GROUP BY e.OrderRef;
 
     -- =============================================
-    -- 13. ExpensesPerDay по типам
+    -- 13. Реальные расходы на день
     -- =============================================
     UPDATE tt
     SET 
-        tt.FuelExpPerDay = CASE WHEN tt.DurationStatement = 0 THEN 0.0 WHEN ow.TotalDayParts > 0 THEN ISNULL(eb.FuelExpenses, 0) * tt.DayPart / ow.TotalDayParts ELSE 0.0 END,
-        tt.AdBlueExpPerDay = CASE WHEN tt.DurationStatement = 0 THEN 0.0 WHEN ow.TotalDayParts > 0 THEN ISNULL(eb.AdBlueExpenses, 0) * tt.DayPart / ow.TotalDayParts ELSE 0.0 END,
-        tt.RoadTaxExpPerDay = CASE WHEN tt.DurationStatement = 0 THEN 0.0 WHEN ow.TotalDayParts > 0 THEN ISNULL(eb.RoadTaxExpenses, 0) * tt.DayPart / ow.TotalDayParts ELSE 0.0 END,
-        tt.DriverSalaryExpPerDay = CASE WHEN tt.DurationStatement = 0 THEN 0.0 WHEN ow.TotalDayParts > 0 THEN ISNULL(eb.DriverSalaryExpenses, 0) * tt.DayPart / ow.TotalDayParts ELSE 0.0 END,
-        tt.WashingExpPerDay = CASE WHEN tt.DurationStatement = 0 THEN 0.0 WHEN ow.TotalDayParts > 0 THEN ISNULL(eb.WashingExpenses, 0) * tt.DayPart / ow.TotalDayParts ELSE 0.0 END,
-        tt.CustomsDutyExpPerDay = CASE WHEN tt.DurationStatement = 0 THEN 0.0 WHEN ow.TotalDayParts > 0 THEN ISNULL(eb.CustomsDutyExpenses, 0) * tt.DayPart / ow.TotalDayParts ELSE 0.0 END,
-        tt.ParkingExpPerDay = CASE WHEN tt.DurationStatement = 0 THEN 0.0 WHEN ow.TotalDayParts > 0 THEN ISNULL(eb.ParkingExpenses, 0) * tt.DayPart / ow.TotalDayParts ELSE 0.0 END,
-        tt.FineExpPerDay = CASE WHEN tt.DurationStatement = 0 THEN 0.0 WHEN ow.TotalDayParts > 0 THEN ISNULL(eb.FineExpenses, 0) * tt.DayPart / ow.TotalDayParts ELSE 0.0 END,
-        tt.OtherExpPerDay = CASE WHEN tt.DurationStatement = 0 THEN 0.0 WHEN ow.TotalDayParts > 0 THEN ISNULL(eb.OtherExpenses, 0) * tt.DayPart / ow.TotalDayParts ELSE 0.0 END
+        tt.RealFuelExpPerDay = CASE WHEN tt.DurationStatement = 0 THEN 0.0 WHEN ow.TotalDayParts > 0 THEN ISNULL(eb.FuelExpenses, 0) * tt.DayPart / ow.TotalDayParts ELSE 0.0 END,
+        tt.RealAdBlueExpPerDay = CASE WHEN tt.DurationStatement = 0 THEN 0.0 WHEN ow.TotalDayParts > 0 THEN ISNULL(eb.AdBlueExpenses, 0) * tt.DayPart / ow.TotalDayParts ELSE 0.0 END,
+        tt.RealRoadTaxExpPerDay = CASE WHEN tt.DurationStatement = 0 THEN 0.0 WHEN ow.TotalDayParts > 0 THEN ISNULL(eb.RoadTaxExpenses, 0) * tt.DayPart / ow.TotalDayParts ELSE 0.0 END,
+        tt.RealDriverSalaryExpPerDay = CASE WHEN tt.DurationStatement = 0 THEN 0.0 WHEN ow.TotalDayParts > 0 THEN ISNULL(eb.DriverSalaryExpenses, 0) * tt.DayPart / ow.TotalDayParts ELSE 0.0 END,
+        tt.RealWashingExpPerDay = CASE WHEN tt.DurationStatement = 0 THEN 0.0 WHEN ow.TotalDayParts > 0 THEN ISNULL(eb.WashingExpenses, 0) * tt.DayPart / ow.TotalDayParts ELSE 0.0 END,
+        tt.RealCustomsDutyExpPerDay = CASE WHEN tt.DurationStatement = 0 THEN 0.0 WHEN ow.TotalDayParts > 0 THEN ISNULL(eb.CustomsDutyExpenses, 0) * tt.DayPart / ow.TotalDayParts ELSE 0.0 END,
+        tt.RealParkingExpPerDay = CASE WHEN tt.DurationStatement = 0 THEN 0.0 WHEN ow.TotalDayParts > 0 THEN ISNULL(eb.ParkingExpenses, 0) * tt.DayPart / ow.TotalDayParts ELSE 0.0 END,
+        tt.RealFineExpPerDay = CASE WHEN tt.DurationStatement = 0 THEN 0.0 WHEN ow.TotalDayParts > 0 THEN ISNULL(eb.FineExpenses, 0) * tt.DayPart / ow.TotalDayParts ELSE 0.0 END,
+        tt.RealOtherExpPerDay = CASE WHEN tt.DurationStatement = 0 THEN 0.0 WHEN ow.TotalDayParts > 0 THEN ISNULL(eb.OtherExpenses, 0) * tt.DayPart / ow.TotalDayParts ELSE 0.0 END
     FROM #TargetTable tt
     LEFT JOIN #OrderWeight ow ON ow.OrderRef = tt.OrderRef
     LEFT JOIN #ExpensesByOrder eb ON eb.OrderRef = tt.OrderRef;
 
     -- =============================================
-    -- 14. LastDriver
+    -- 14. Backfill из TargetTableFact
+    --     Для строк без заказа (OrderRef IS NULL):
+    --     копируем OrderRef, DriverRef, StatementRef (если NULL),
+    --     DayPart, IncomePerDay.
+    --     Берем ТОЛЬКО заказы, которых нет в Real (#AllOrders) —
+    --     если заказ уже встречался в Real, его в пустые дни не добавляем.
+    -- =============================================
+    UPDATE tt
+    SET 
+        tt.OrderRef = fb.OrderRef,
+        tt.DriverRef = fb.DriverRef,
+        tt.StatementRef = CASE WHEN tt.StatementRef IS NULL THEN fb.StatementRef ELSE tt.StatementRef END,
+        tt.DayPart = fb.DayPart,
+        tt.IncomePerDay = fb.IncomePerDay
+    FROM #TargetTable tt
+    INNER JOIN #FactRows fb 
+        ON fb.TruckRef = tt.TruckRef AND fb.TargetDate = tt.TargetDate AND fb.RN = 1
+    WHERE tt.OrderRef IS NULL
+      AND fb.OrderRef IS NOT NULL
+      AND fb.OrderRef NOT IN (SELECT OrderRef FROM #AllOrders);
+
+    -- =============================================
+    -- 15. IsPaidStatement, DurationStatement (после backfill)
+    -- =============================================
+    UPDATE tt
+    SET tt.IsPaidStatement = CASE WHEN ST.StatementType4 = N'Без оплати' THEN 0 ELSE 1 END,
+        tt.DurationStatement = CASE WHEN ST.StatementType1 = N'Простой' THEN 0 ELSE 1 END
+    FROM #TargetTable tt
+    LEFT JOIN pbi.vb_StatementType ST ON ST.StatementTypeRef = tt.StatementRef;
+
+    -- =============================================
+    -- 16. LastDriver (для истинно пустых дней)
     -- =============================================
     ;WITH cte_LastDriver AS (
         SELECT T.TruckRef, T.TargetDate, D.LastDriver
@@ -304,10 +390,10 @@ BEGIN
     WHERE tt.DriverRef IS NULL;
 
     -- =============================================
-    -- 15. DriverSalaryExpPerDay для пустых дней
+    -- 17. RealDriverSalaryExpPerDay для истинно пустых дней
     -- =============================================
     UPDATE tt
-    SET tt.DriverSalaryExpPerDay = 
+    SET tt.RealDriverSalaryExpPerDay = 
         CASE WHEN tt.IsPaidStatement = 0 THEN 0.0 ELSE ISNULL(ds.DriverSalaryPerDayEUR, 0) * tt.DayPart END
     FROM #TargetTable tt
     OUTER APPLY (
@@ -319,17 +405,58 @@ BEGIN
     WHERE tt.OrderRef IS NULL;
 
     -- =============================================
-    -- 16. MarginPerDay
+    -- 18. FactDriverSalaryPerDay (для ВСЕХ строк)
+    --     По заказу, если он есть; иначе по машине+дате
+    -- =============================================
+    UPDATE tt
+    SET tt.FactDriverSalaryPerDay = ISNULL(fr.DriverSalaryPerDay, 0)
+    FROM #TargetTable tt
+    OUTER APPLY (
+        SELECT TOP 1 f.DriverSalaryPerDay
+        FROM #FactRows f
+        WHERE f.TargetDate = tt.TargetDate
+          AND (f.OrderRef = tt.OrderRef OR (tt.OrderRef IS NULL AND f.TruckRef = tt.TruckRef))
+        ORDER BY CASE WHEN f.OrderRef = tt.OrderRef THEN 0 ELSE 1 END, f.RN
+    ) fr;
+
+    -- =============================================
+    -- 19. FactOrderWeight (после backfill)
+    -- =============================================
+    IF OBJECT_ID('tempdb..#FactOrderWeight') IS NOT NULL DROP TABLE #FactOrderWeight;
+
+    SELECT OrderRef, SUM(CASE WHEN DurationStatement = 1 THEN DayPart ELSE 0 END) AS TotalDayParts
+    INTO #FactOrderWeight
+    FROM #TargetTable GROUP BY OrderRef;
+
+    -- =============================================
+    -- 20. Fact-расходы (8 колонок из FactSplit)
+    -- =============================================
+    UPDATE tt
+    SET 
+        tt.FactFuelExpPerDay = CASE WHEN tt.DurationStatement = 0 THEN 0.0 WHEN ow.TotalDayParts > 0 THEN ISNULL(fs.FuelExpTotal, 0) * tt.DayPart / ow.TotalDayParts ELSE 0.0 END,
+        tt.FactAdBlueExpPerDay = CASE WHEN tt.DurationStatement = 0 THEN 0.0 WHEN ow.TotalDayParts > 0 THEN ISNULL(fs.AdBlueExpTotal, 0) * tt.DayPart / ow.TotalDayParts ELSE 0.0 END,
+        tt.FactRoadTaxExpPerDay = CASE WHEN tt.DurationStatement = 0 THEN 0.0 WHEN ow.TotalDayParts > 0 THEN ISNULL(fs.RoadTaxExpTotal, 0) * tt.DayPart / ow.TotalDayParts ELSE 0.0 END,
+        tt.FactWashingExpPerDay = CASE WHEN tt.DurationStatement = 0 THEN 0.0 WHEN ow.TotalDayParts > 0 THEN ISNULL(fs.WashingExpTotal, 0) * tt.DayPart / ow.TotalDayParts ELSE 0.0 END,
+        tt.FactCustomsDutyExpPerDay = CASE WHEN tt.DurationStatement = 0 THEN 0.0 WHEN ow.TotalDayParts > 0 THEN ISNULL(fs.CustomsDutyExpTotal, 0) * tt.DayPart / ow.TotalDayParts ELSE 0.0 END,
+        tt.FactParkingExpPerDay = CASE WHEN tt.DurationStatement = 0 THEN 0.0 WHEN ow.TotalDayParts > 0 THEN ISNULL(fs.ParkingExpTotal, 0) * tt.DayPart / ow.TotalDayParts ELSE 0.0 END,
+        tt.FactFineExpPerDay = CASE WHEN tt.DurationStatement = 0 THEN 0.0 WHEN ow.TotalDayParts > 0 THEN ISNULL(fs.FineExpTotal, 0) * tt.DayPart / ow.TotalDayParts ELSE 0.0 END,
+        tt.FactOtherExpPerDay = CASE WHEN tt.DurationStatement = 0 THEN 0.0 WHEN ow.TotalDayParts > 0 THEN ISNULL(fs.OtherExpTotal, 0) * tt.DayPart / ow.TotalDayParts ELSE 0.0 END
+    FROM #TargetTable tt
+    LEFT JOIN #FactOrderWeight ow ON ow.OrderRef = tt.OrderRef
+    LEFT JOIN #FactSplit fs ON fs.OrderRef = tt.OrderRef;
+
+    -- =============================================
+    -- 21. MarginPerDay
     -- =============================================
     UPDATE tt
     SET tt.MarginPerDay = tt.IncomePerDay 
-        - (tt.FuelExpPerDay + tt.AdBlueExpPerDay + tt.RoadTaxExpPerDay 
-           + tt.DriverSalaryExpPerDay + tt.WashingExpPerDay + tt.CustomsDutyExpPerDay 
-           + tt.ParkingExpPerDay + tt.FineExpPerDay + tt.OtherExpPerDay)
+        - (tt.RealFuelExpPerDay + tt.RealAdBlueExpPerDay + tt.RealRoadTaxExpPerDay 
+           + tt.RealDriverSalaryExpPerDay + tt.RealWashingExpPerDay + tt.RealCustomsDutyExpPerDay 
+           + tt.RealParkingExpPerDay + tt.RealFineExpPerDay + tt.RealOtherExpPerDay)
     FROM #TargetTable tt;
 
     -- =============================================
-    -- 17. BreakEvenPointPerDay, QuotaPerDay
+    -- 22. BreakEvenPointPerDay, QuotaPerDay
     -- =============================================
     UPDATE tt
     SET 
@@ -348,7 +475,7 @@ BEGIN
     LEFT JOIN #PivotRoute pr ON pr.PivotRouteRef = do.RouteReff;
 
     -- =============================================
-    -- 18. DELETE + INSERT в pbi.TargetTableReal
+    -- 23. DELETE + INSERT в pbi.TargetTableReal
     -- =============================================
     DELETE FROM pbi.TargetTableReal WHERE TargetDate >= @StartDateParam;
 
@@ -360,9 +487,13 @@ BEGIN
         CONVERT(VARCHAR(MAX), DriverRef, 2) AS DriverRef,
         CONVERT(VARCHAR(MAX), StatementRef, 2) AS StatementRef,
         IsPaidStatement, DurationStatement, DayPart,
-        IncomePerDay, FuelExpPerDay, AdBlueExpPerDay, RoadTaxExpPerDay,
-        DriverSalaryExpPerDay, WashingExpPerDay, CustomsDutyExpPerDay,
-        ParkingExpPerDay, FineExpPerDay, OtherExpPerDay,
+        IncomePerDay,
+        RealFuelExpPerDay, RealAdBlueExpPerDay, RealRoadTaxExpPerDay,
+        RealDriverSalaryExpPerDay, RealWashingExpPerDay, RealCustomsDutyExpPerDay,
+        RealParkingExpPerDay, RealFineExpPerDay, RealOtherExpPerDay,
+        FactFuelExpPerDay, FactAdBlueExpPerDay, FactRoadTaxExpPerDay,
+        FactWashingExpPerDay, FactCustomsDutyExpPerDay, FactParkingExpPerDay,
+        FactFineExpPerDay, FactOtherExpPerDay, FactDriverSalaryPerDay,
         MarginPerDay, BreakEvenPointPerDay, QuotaPerDay,
         CONVERT(VARCHAR(MAX), MainManagerRef, 2) AS MainManagerRef,
         CONVERT(VARCHAR(MAX), CurManagerRef, 2) AS CurManagerRef
@@ -375,8 +506,11 @@ BEGIN
     DROP TABLE #TargetTable;
     DROP TABLE #AllOrders;
     DROP TABLE #OrderWeight;
+    DROP TABLE #FactOrderWeight;
     DROP TABLE #Statements;
     DROP TABLE #ExpensesByOrder;
+    DROP TABLE #FactRows;
+    DROP TABLE #FactSplit;
     DROP TABLE #Trucks;
     DROP TABLE #DimOrders;
     DROP TABLE #OrderCost;

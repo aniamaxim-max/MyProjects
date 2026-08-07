@@ -144,10 +144,25 @@ Create PROCEDURE pbi.FreeCar AS
 		where not exists(select * from pbi.v_Mixing M where O.OrderRef = M.OrderReff)
 	) T
 
+	IF OBJECT_ID('tempdb..#TruckManagerHistory') IS NOT NULL 
+		DROP TABLE #TruckManagerHistory;
+
+	SELECT CAST(TruckRef AS VARCHAR(50)) AS TruckRef, ManagerRef, PeriodStart
+	INTO #TruckManagerHistory
+	FROM pbi.v_TruckManagerHistory;
+	CREATE INDEX IX_TMH_Truck_Period ON #TruckManagerHistory(TruckRef, PeriodStart);
+
 	;with cte_DimTrucks as(
-		select VT.TruckReff, LegalNum, Manager, cast(GETDATE() as Date) as ReportDate 
+		select VT.TruckReff, LegalNum, M.Manager, cast(GETDATE() as Date) as ReportDate 
 		from pbi.v_DimTrucks VT
-		left join pbi.v_TruckManager VTM on VT.TruckReff = VTM.TruckReff
+		outer apply (
+			select top 1 U.[User] as Manager
+			from #TruckManagerHistory TMH
+			inner join pbi.v_DimUsers U on U.UserReff = TMH.ManagerRef
+			where TMH.TruckRef = VT.TruckReff
+			  and TMH.PeriodStart <= GETDATE()
+			order by TMH.PeriodStart desc
+		) M
 		where VT.Active = 1
 	),
 	cte_AllCounts as(
@@ -257,5 +272,6 @@ Create PROCEDURE pbi.FreeCar AS
 	drop table #AllOrders
 	drop table #Orders
 	drop table #Repairs
+	drop table #TruckManagerHistory
 
 GO

@@ -1,4 +1,4 @@
--- SELECT * from pbi.v_TruckManagerHistory
+-- SELECT t.*, u.[User] from pbi.v_TruckManagerHistory t left join pbi.v_DimUsers u on t.ManagerRef = u.UserReff
 -- SELECT * from pbi.vb_TruckManagerHistory
 
 IF EXISTS(SELECT v.name FROM sys.views v
