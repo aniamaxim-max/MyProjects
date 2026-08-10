@@ -83,6 +83,7 @@ Create view pbi.v_DimOrders AS
     ,CAST(_Document650._Fld32970 as bit) AS 'TechOrder'
     --,DirOrderType.OrderDirType
     ,CAST(_Fld17708 as bit) AS 'Expedition'
+    ,CAST(_Fld34631 as bit) AS 'AddDownload'
     ,CAST(CASE 
             WHEN 
                 CAST(_Document650._Fld32970 as bit) = 0 
@@ -226,6 +227,7 @@ Create view pbi.vb_DimOrders AS
     ,_Document650._Fld17719_RRRef AS 'Ñontainer'
     ,CAST(_Document650._Fld32970 as bit) AS 'TechOrder'
     ,CAST(_Fld17708 as bit) AS 'Expedition'
+    ,CAST(_Fld34631 as bit) AS 'AddDownload'
     ,CAST(CASE 
             WHEN 
                 CAST(_Document650._Fld32970 as bit) = 0 

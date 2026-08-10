@@ -1,4 +1,4 @@
--- exec work.pbi.RefreshTargetTableReal '20260601'
+-- exec work.pbi.RefreshTargetTableReal '20260101'
 -- select * from pbi.TargetTableReal where TargetDate >= '20260601' order by TruckRef, TargetDate
 
 IF EXISTS (SELECT * FROM sys.procedures WHERE name = 'RefreshTargetTableReal' AND SCHEMA_NAME(schema_id) = 'pbi')
@@ -13,6 +13,9 @@ BEGIN
 
     declare @StartDate datetime
     set @StartDate = DATEADD(MONTH, -1, CAST(@StartDateParam AS DATE))
+
+    -- Обновляем FactSplit (сама по себе нигде не вызывается)
+    EXEC work.pbi.RefreshTargetTableFactSplit @StartDateParam
 
     -- =============================================
     -- 1. AllOrders из путевых листов
@@ -194,6 +197,25 @@ BEGIN
         FactFineExpPerDay     NUMERIC(10,4) NOT NULL DEFAULT 0.0,
         FactOtherExpPerDay    NUMERIC(10,4) NOT NULL DEFAULT 0.0,
         FactDriverSalaryPerDay NUMERIC(10,4) NOT NULL DEFAULT 0.0,
+        FuelExpPerDay       NUMERIC(10,4) NOT NULL DEFAULT 0.0,
+        FuelExpPerDaySource VARCHAR(1) NULL,
+        AdBlueExpPerDay     NUMERIC(10,4) NOT NULL DEFAULT 0.0,
+        AdBlueExpPerDaySource VARCHAR(1) NULL,
+        RoadTaxExpPerDay    NUMERIC(10,4) NOT NULL DEFAULT 0.0,
+        RoadTaxExpPerDaySource VARCHAR(1) NULL,
+        DriverSalaryExpPerDay NUMERIC(10,4) NOT NULL DEFAULT 0.0,
+        DriverSalaryExpPerDaySource VARCHAR(1) NULL,
+        WashingExpPerDay    NUMERIC(10,4) NOT NULL DEFAULT 0.0,
+        WashingExpPerDaySource VARCHAR(1) NULL,
+        CustomsDutyExpPerDay NUMERIC(10,4) NOT NULL DEFAULT 0.0,
+        CustomsDutyExpPerDaySource VARCHAR(1) NULL,
+        ParkingExpPerDay    NUMERIC(10,4) NOT NULL DEFAULT 0.0,
+        ParkingExpPerDaySource VARCHAR(1) NULL,
+        FineExpPerDay       NUMERIC(10,4) NOT NULL DEFAULT 0.0,
+        FineExpPerDaySource VARCHAR(1) NULL,
+        OtherExpPerDay      NUMERIC(10,4) NOT NULL DEFAULT 0.0,
+        OtherExpPerDaySource VARCHAR(1) NULL,
+        ExpensesPerDay      NUMERIC(10,4) NOT NULL DEFAULT 0.0,
         MarginPerDay      NUMERIC(10,4) NOT NULL DEFAULT 0.0,
         BreakEvenPointPerDay NUMERIC(10,4) NOT NULL DEFAULT 0.0,
         QuotaPerDay       NUMERIC(10,4) NOT NULL DEFAULT 0.0,
@@ -446,14 +468,9 @@ BEGIN
     LEFT JOIN #FactSplit fs ON fs.OrderRef = tt.OrderRef;
 
     -- =============================================
-    -- 21. MarginPerDay
+    -- 21. MarginPerDay — считается ПОСЛЕ отбора (шаг 24)
     -- =============================================
-    UPDATE tt
-    SET tt.MarginPerDay = tt.IncomePerDay 
-        - (tt.RealFuelExpPerDay + tt.RealAdBlueExpPerDay + tt.RealRoadTaxExpPerDay 
-           + tt.RealDriverSalaryExpPerDay + tt.RealWashingExpPerDay + tt.RealCustomsDutyExpPerDay 
-           + tt.RealParkingExpPerDay + tt.RealFineExpPerDay + tt.RealOtherExpPerDay)
-    FROM #TargetTable tt;
+    -- (MarginPerDay = IncomePerDay - сумма отобранных расходов)
 
     -- =============================================
     -- 22. BreakEvenPointPerDay, QuotaPerDay
@@ -475,7 +492,137 @@ BEGIN
     LEFT JOIN #PivotRoute pr ON pr.PivotRouteRef = do.RouteReff;
 
     -- =============================================
-    -- 23. DELETE + INSERT в pbi.TargetTableReal
+    -- 23. Отбор Real/Fact по каждой паре расходов
+    --     Группа 1 (Fuel, AdBlue, DriverSalary):
+    --       real > 0 -> real, иначе fact
+    --     Группа 2 (остальные):
+    --       EndFact < GETDATE()-1 месяц -> real
+    --       иначе max(real, fact), при равенстве -> real
+    -- =============================================
+    IF OBJECT_ID('tempdb..#OrderEndFact') IS NOT NULL DROP TABLE #OrderEndFact;
+
+    SELECT OrderRef, EndFact
+    INTO #OrderEndFact
+    FROM pbi.vb_DimOrders
+    WHERE OrderRef IN (SELECT OrderRef FROM #TargetTable WHERE OrderRef IS NOT NULL);
+
+    CREATE CLUSTERED INDEX IX_OEF_Order ON #OrderEndFact(OrderRef);
+
+    -- Группа 1: Fuel, AdBlue, DriverSalary
+    -- AdBlue: если Fuel имеет источник 'R', то и AdBlue берём real (даже 0) с источником 'R'
+    UPDATE tt
+    SET 
+        tt.FuelExpPerDay = CASE WHEN tt.RealFuelExpPerDay > 0 THEN tt.RealFuelExpPerDay ELSE tt.FactFuelExpPerDay END,
+        tt.FuelExpPerDaySource = CASE WHEN tt.RealFuelExpPerDay > 0 THEN 'R' ELSE 'F' END,
+        tt.AdBlueExpPerDay = CASE
+            WHEN tt.RealFuelExpPerDay > 0 THEN tt.RealAdBlueExpPerDay
+            WHEN tt.RealAdBlueExpPerDay > 0 THEN tt.RealAdBlueExpPerDay
+            ELSE tt.FactAdBlueExpPerDay END,
+        tt.AdBlueExpPerDaySource = CASE
+            WHEN tt.RealFuelExpPerDay > 0 THEN 'R'
+            WHEN tt.RealAdBlueExpPerDay > 0 THEN 'R'
+            ELSE 'F' END,
+        tt.DriverSalaryExpPerDay = CASE WHEN tt.RealDriverSalaryExpPerDay > 0 THEN tt.RealDriverSalaryExpPerDay ELSE tt.FactDriverSalaryPerDay END,
+        tt.DriverSalaryExpPerDaySource = CASE WHEN tt.RealDriverSalaryExpPerDay > 0 THEN 'R' ELSE 'F' END
+    FROM #TargetTable tt
+    WHERE tt.OrderRef IS NOT NULL;
+
+    -- Группа 2: RoadTax, Washing, CustomsDuty, Parking, Fine, Other
+    UPDATE tt
+    SET 
+        tt.RoadTaxExpPerDay = CASE
+            WHEN tt.OrderRef IS NULL THEN 0
+            WHEN oef.EndFact < DATEADD(MONTH, -1, GETDATE()) THEN tt.RealRoadTaxExpPerDay
+            WHEN tt.RealRoadTaxExpPerDay > tt.FactRoadTaxExpPerDay THEN tt.RealRoadTaxExpPerDay
+            ELSE tt.FactRoadTaxExpPerDay END,
+        tt.RoadTaxExpPerDaySource = CASE
+            WHEN tt.OrderRef IS NULL THEN NULL
+            WHEN oef.EndFact < DATEADD(MONTH, -1, GETDATE()) THEN 'R'
+            WHEN tt.RealRoadTaxExpPerDay > tt.FactRoadTaxExpPerDay THEN 'R'
+            WHEN tt.RealRoadTaxExpPerDay = tt.FactRoadTaxExpPerDay AND tt.RealRoadTaxExpPerDay > 0 THEN 'R'
+            ELSE 'F' END,
+        tt.WashingExpPerDay = CASE
+            WHEN tt.OrderRef IS NULL THEN 0
+            WHEN oef.EndFact < DATEADD(MONTH, -1, GETDATE()) THEN tt.RealWashingExpPerDay
+            WHEN tt.RealWashingExpPerDay > tt.FactWashingExpPerDay THEN tt.RealWashingExpPerDay
+            ELSE tt.FactWashingExpPerDay END,
+        tt.WashingExpPerDaySource = CASE
+            WHEN tt.OrderRef IS NULL THEN NULL
+            WHEN oef.EndFact < DATEADD(MONTH, -1, GETDATE()) THEN 'R'
+            WHEN tt.RealWashingExpPerDay > tt.FactWashingExpPerDay THEN 'R'
+            WHEN tt.RealWashingExpPerDay = tt.FactWashingExpPerDay AND tt.RealWashingExpPerDay > 0 THEN 'R'
+            ELSE 'F' END,
+        tt.CustomsDutyExpPerDay = CASE
+            WHEN tt.OrderRef IS NULL THEN 0
+            WHEN oef.EndFact < DATEADD(MONTH, -1, GETDATE()) THEN tt.RealCustomsDutyExpPerDay
+            WHEN tt.RealCustomsDutyExpPerDay > tt.FactCustomsDutyExpPerDay THEN tt.RealCustomsDutyExpPerDay
+            ELSE tt.FactCustomsDutyExpPerDay END,
+        tt.CustomsDutyExpPerDaySource = CASE
+            WHEN tt.OrderRef IS NULL THEN NULL
+            WHEN oef.EndFact < DATEADD(MONTH, -1, GETDATE()) THEN 'R'
+            WHEN tt.RealCustomsDutyExpPerDay > tt.FactCustomsDutyExpPerDay THEN 'R'
+            WHEN tt.RealCustomsDutyExpPerDay = tt.FactCustomsDutyExpPerDay AND tt.RealCustomsDutyExpPerDay > 0 THEN 'R'
+            ELSE 'F' END,
+        tt.ParkingExpPerDay = CASE
+            WHEN tt.OrderRef IS NULL THEN 0
+            WHEN oef.EndFact < DATEADD(MONTH, -1, GETDATE()) THEN tt.RealParkingExpPerDay
+            WHEN tt.RealParkingExpPerDay > tt.FactParkingExpPerDay THEN tt.RealParkingExpPerDay
+            ELSE tt.FactParkingExpPerDay END,
+        tt.ParkingExpPerDaySource = CASE
+            WHEN tt.OrderRef IS NULL THEN NULL
+            WHEN oef.EndFact < DATEADD(MONTH, -1, GETDATE()) THEN 'R'
+            WHEN tt.RealParkingExpPerDay > tt.FactParkingExpPerDay THEN 'R'
+            WHEN tt.RealParkingExpPerDay = tt.FactParkingExpPerDay AND tt.RealParkingExpPerDay > 0 THEN 'R'
+            ELSE 'F' END,
+        tt.FineExpPerDay = CASE
+            WHEN tt.OrderRef IS NULL THEN 0
+            WHEN oef.EndFact < DATEADD(MONTH, -1, GETDATE()) THEN tt.RealFineExpPerDay
+            WHEN tt.RealFineExpPerDay > tt.FactFineExpPerDay THEN tt.RealFineExpPerDay
+            ELSE tt.FactFineExpPerDay END,
+        tt.FineExpPerDaySource = CASE
+            WHEN tt.OrderRef IS NULL THEN NULL
+            WHEN oef.EndFact < DATEADD(MONTH, -1, GETDATE()) THEN 'R'
+            WHEN tt.RealFineExpPerDay > tt.FactFineExpPerDay THEN 'R'
+            WHEN tt.RealFineExpPerDay = tt.FactFineExpPerDay AND tt.RealFineExpPerDay > 0 THEN 'R'
+            ELSE 'F' END,
+        tt.OtherExpPerDay = CASE
+            WHEN tt.OrderRef IS NULL THEN 0
+            WHEN oef.EndFact < DATEADD(MONTH, -1, GETDATE()) THEN tt.RealOtherExpPerDay
+            WHEN tt.RealOtherExpPerDay > tt.FactOtherExpPerDay THEN tt.RealOtherExpPerDay
+            ELSE tt.FactOtherExpPerDay END,
+        tt.OtherExpPerDaySource = CASE
+            WHEN tt.OrderRef IS NULL THEN NULL
+            WHEN oef.EndFact < DATEADD(MONTH, -1, GETDATE()) THEN 'R'
+            WHEN tt.RealOtherExpPerDay > tt.FactOtherExpPerDay THEN 'R'
+            WHEN tt.RealOtherExpPerDay = tt.FactOtherExpPerDay AND tt.RealOtherExpPerDay > 0 THEN 'R'
+            ELSE 'F' END
+    FROM #TargetTable tt
+    LEFT JOIN #OrderEndFact oef ON oef.OrderRef = tt.OrderRef;
+
+    -- DriverSalary для пустых дней: источник NULL если оба 0
+    UPDATE tt
+    SET tt.DriverSalaryExpPerDaySource = CASE
+            WHEN tt.RealDriverSalaryExpPerDay = 0 AND tt.FactDriverSalaryPerDay = 0 THEN NULL
+            WHEN tt.RealDriverSalaryExpPerDay > 0 THEN 'R'
+            ELSE 'F' END
+    FROM #TargetTable tt
+    WHERE tt.OrderRef IS NULL;
+
+    -- =============================================
+    -- 24. ExpensesPerDay + MarginPerDay (по отобранным)
+    -- =============================================
+    UPDATE tt
+    SET tt.ExpensesPerDay = tt.FuelExpPerDay + tt.AdBlueExpPerDay + tt.RoadTaxExpPerDay
+        + tt.DriverSalaryExpPerDay + tt.WashingExpPerDay + tt.CustomsDutyExpPerDay
+        + tt.ParkingExpPerDay + tt.FineExpPerDay + tt.OtherExpPerDay,
+        tt.MarginPerDay = tt.IncomePerDay
+        - (tt.FuelExpPerDay + tt.AdBlueExpPerDay + tt.RoadTaxExpPerDay
+           + tt.DriverSalaryExpPerDay + tt.WashingExpPerDay + tt.CustomsDutyExpPerDay
+           + tt.ParkingExpPerDay + tt.FineExpPerDay + tt.OtherExpPerDay)
+    FROM #TargetTable tt;
+
+    -- =============================================
+    -- 25. DELETE + INSERT в pbi.TargetTableReal
     -- =============================================
     DELETE FROM pbi.TargetTableReal WHERE TargetDate >= @StartDateParam;
 
@@ -488,13 +635,16 @@ BEGIN
         CONVERT(VARCHAR(MAX), StatementRef, 2) AS StatementRef,
         IsPaidStatement, DurationStatement, DayPart,
         IncomePerDay,
-        RealFuelExpPerDay, RealAdBlueExpPerDay, RealRoadTaxExpPerDay,
-        RealDriverSalaryExpPerDay, RealWashingExpPerDay, RealCustomsDutyExpPerDay,
-        RealParkingExpPerDay, RealFineExpPerDay, RealOtherExpPerDay,
-        FactFuelExpPerDay, FactAdBlueExpPerDay, FactRoadTaxExpPerDay,
-        FactWashingExpPerDay, FactCustomsDutyExpPerDay, FactParkingExpPerDay,
-        FactFineExpPerDay, FactOtherExpPerDay, FactDriverSalaryPerDay,
-        MarginPerDay, BreakEvenPointPerDay, QuotaPerDay,
+        FuelExpPerDay, FuelExpPerDaySource,
+        AdBlueExpPerDay, AdBlueExpPerDaySource,
+        RoadTaxExpPerDay, RoadTaxExpPerDaySource,
+        DriverSalaryExpPerDay, DriverSalaryExpPerDaySource,
+        WashingExpPerDay, WashingExpPerDaySource,
+        CustomsDutyExpPerDay, CustomsDutyExpPerDaySource,
+        ParkingExpPerDay, ParkingExpPerDaySource,
+        FineExpPerDay, FineExpPerDaySource,
+        OtherExpPerDay, OtherExpPerDaySource,
+        ExpensesPerDay, MarginPerDay, BreakEvenPointPerDay, QuotaPerDay,
         CONVERT(VARCHAR(MAX), MainManagerRef, 2) AS MainManagerRef,
         CONVERT(VARCHAR(MAX), CurManagerRef, 2) AS CurManagerRef
     FROM #TargetTable
@@ -507,6 +657,7 @@ BEGIN
     DROP TABLE #AllOrders;
     DROP TABLE #OrderWeight;
     DROP TABLE #FactOrderWeight;
+    DROP TABLE #OrderEndFact;
     DROP TABLE #Statements;
     DROP TABLE #ExpensesByOrder;
     DROP TABLE #FactRows;
