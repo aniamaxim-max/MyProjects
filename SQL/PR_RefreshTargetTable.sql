@@ -67,11 +67,12 @@ BEGIN
 		DriverReff binary(16), 
 		ManagerReff binary(16), 
 		RouteReff binary(16), 
-		ClientReff binary(16)
+		ClientReff binary(16),
+		AddDownload bit
 	);
 
 	INSERT INTO #DimOrders
-	SELECT OrderRef, TruckReff, DriverReff, ManagerReff, RouteReff, ClientReff	
+	SELECT OrderRef, TruckReff, DriverReff, ManagerReff, RouteReff, ClientReff, AddDownload	
 	FROM pbi.vb_DimOrders
 	WHERE OrderRef IN (SELECT OrderRef FROM #WorkDays);
 
@@ -195,7 +196,8 @@ BEGIN
 	    BreakEvenPointPerDay numeric(10,4) not null default 0.0,
 	    QuotaPerDay       numeric(10,4) not null default 0.0,
 		MainManagerRef    binary(16),
-		CurManagerRef     binary(16)
+		CurManagerRef     binary(16),
+		AddDownload       bit
     )
 
 	CREATE NONCLUSTERED INDEX TargetTable_TruckRef_TargetDate_DriverRef ON #TargetTable ([TruckRef],[TargetDate],[DriverRef])
@@ -243,7 +245,8 @@ BEGIN
 	FROM #TargetTable tt
 
 	UPDATE #TargetTable
-    SET CurManagerRef = do.ManagerReff
+    SET CurManagerRef = do.ManagerReff,
+        AddDownload   = do.AddDownload
     FROM #DimOrders do
     WHERE do.OrderRef = #TargetTable.OrderRef
 
@@ -408,7 +411,8 @@ BEGIN
 			BreakEvenPointPerDay,
 			QuotaPerDay,
 			CONVERT(VARCHAR(MAX), MainManagerRef, 2) AS MainManagerRef,
-			CONVERT(VARCHAR(MAX), CurManagerRef, 2) AS CurManagerRef
+			CONVERT(VARCHAR(MAX), CurManagerRef, 2) AS CurManagerRef,
+			AddDownload
 		FROM #TargetTable
         WHERE TargetDate >= @StartDateParam
     END
@@ -433,7 +437,8 @@ BEGIN
 			BreakEvenPointPerDay,
 			QuotaPerDay,
 			CONVERT(VARCHAR(MAX), MainManagerRef, 2) AS MainManagerRef,
-			CONVERT(VARCHAR(MAX), CurManagerRef, 2) AS CurManagerRef
+			CONVERT(VARCHAR(MAX), CurManagerRef, 2) AS CurManagerRef,
+			AddDownload
 		FROM #TargetTable
         WHERE TargetDate >= @StartDateParam
     END

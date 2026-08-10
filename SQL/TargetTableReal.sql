@@ -42,3 +42,12 @@ CREATE TABLE [pbi].[TargetTableReal] (
     CurManagerRef           varchar(50)
 );
 GO
+
+IF NOT EXISTS (SELECT * 
+                FROM sys.columns c
+                    INNER JOIN sys.objects o ON c.object_Id = o.object_Id
+					INNER JOIN sys.schemas s ON o.schema_id = s.schema_id 
+                WHERE c.name = 'AddDownload' and o.name = 'TargetTableReal' and s.name = 'pbi')
+    ALTER TABLE [pbi].[TargetTableReal] ADD
+        AddDownload      bit
+GO 

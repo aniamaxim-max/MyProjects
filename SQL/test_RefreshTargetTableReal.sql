@@ -206,7 +206,8 @@ CREATE TABLE #TargetTable (
     BreakEvenPointPerDay NUMERIC(10,4) NOT NULL DEFAULT 0.0,
     QuotaPerDay       NUMERIC(10,4) NOT NULL DEFAULT 0.0,
     MainManagerRef    binary(16),
-    CurManagerRef     binary(16)
+    CurManagerRef     binary(16),
+    AddDownload       bit
 );
 
 INSERT INTO #TargetTable(TruckRef, TargetDate, OrderRef, DriverRef)
@@ -477,12 +478,18 @@ LEFT JOIN #PivotRoute pr ON pr.PivotRouteRef = do.RouteReff;
 -- =============================================
 IF OBJECT_ID('tempdb..#OrderEndFact') IS NOT NULL DROP TABLE #OrderEndFact;
 
-SELECT OrderRef, EndFact
+SELECT OrderRef, EndFact, AddDownload
 INTO #OrderEndFact
 FROM pbi.vb_DimOrders
 WHERE OrderRef IN (SELECT OrderRef FROM #TargetTable WHERE OrderRef IS NOT NULL);
 
 CREATE CLUSTERED INDEX IX_OEF_Order ON #OrderEndFact(OrderRef);
+
+-- Заполняем AddDownload по всем заказам (реальные + backfill), пустые дни -> NULL
+UPDATE tt
+SET tt.AddDownload = oef.AddDownload
+FROM #TargetTable tt
+LEFT JOIN #OrderEndFact oef ON oef.OrderRef = tt.OrderRef;
 
 -- Группа 1: Fuel, AdBlue, DriverSalary
 -- AdBlue: если Fuel имеет источник 'R', то и AdBlue берём real (даже 0) с источником 'R'
@@ -623,7 +630,8 @@ SELECT
     OtherExpPerDay, OtherExpPerDaySource,
     ExpensesPerDay, MarginPerDay, BreakEvenPointPerDay, QuotaPerDay,
     CONVERT(VARCHAR(MAX), MainManagerRef, 2) AS MainManagerRef,
-    CONVERT(VARCHAR(MAX), CurManagerRef, 2) AS CurManagerRef
+    CONVERT(VARCHAR(MAX), CurManagerRef, 2) AS CurManagerRef,
+    AddDownload
 FROM #TargetTable
 WHERE TargetDate >= @StartDateParam
 ORDER BY TruckRef, TargetDate;
