@@ -1,5 +1,5 @@
--- exec work.pbi.RefreshTargetTableReal '20260101'
--- select * from pbi.TargetTableReal where TargetDate >= '20260601' order by TruckRef, TargetDate
+﻿-- exec work.pbi.RefreshTargetTableReal '20260101'
+-- select * from pbi.TargetTableReal where TargetDate >= '20260601' and OrderRef = '80B902B31CC3E40111F1A2CC49DD0C4A' order by TruckRef, TargetDate 
 
 IF EXISTS (SELECT * FROM sys.procedures WHERE name = 'RefreshTargetTableReal' AND SCHEMA_NAME(schema_id) = 'pbi')
     DROP PROCEDURE pbi.RefreshTargetTableReal;
@@ -316,7 +316,7 @@ BEGIN
     SELECT 
         e.OrderRef,
         SUM(CASE 
-            WHEN de.ExpensesType = 'Fuel' AND (e.ExpensesRef <> 0x86F5B68AC35E4EB511E679CAA0EBCC81 OR e.DriverWork IS NOT NULL)
+            WHEN de.ExpensesType = 'Fuel' AND (e.ExpensesRef <> 0x86F5B68AC35E4EB511E679CAA0EBCC81 OR e.DriverWork > 0)
             THEN e.Sum - CASE 
                 WHEN e.ExpensesRef = 0x86F5B68AC35E4EB511E679CAA0EBCC7F 
                      AND dt.LastTruckCompany = N'Трімекс' 
@@ -324,14 +324,14 @@ BEGIN
                 THEN e.Sum * 0.2
                 ELSE ISNULL(e.NDS, 0) END
             ELSE 0 END) AS FuelExpenses,
-        SUM(CASE WHEN de.ExpensesType = 'AdBlue' AND (e.ExpensesRef <> 0x86F5B68AC35E4EB511E679CAA0EBCC81 OR e.DriverWork IS NOT NULL) THEN e.Sum - ISNULL(e.NDS, 0) ELSE 0 END) AS AdBlueExpenses,
-        SUM(CASE WHEN de.ExpensesType = 'RoadTax' AND (e.ExpensesRef <> 0x86F5B68AC35E4EB511E679CAA0EBCC81 OR e.DriverWork IS NOT NULL) THEN e.Sum - ISNULL(e.NDS, 0) ELSE 0 END) AS RoadTaxExpenses,
-        SUM(CASE WHEN de.ExpensesType = 'DriverSalary' AND e.DriverWork IS NOT NULL THEN e.Sum - ISNULL(e.NDS, 0) ELSE 0 END) AS DriverSalaryExpenses,
-        SUM(CASE WHEN de.ExpensesType = 'Washing' AND (e.ExpensesRef <> 0x86F5B68AC35E4EB511E679CAA0EBCC81 OR e.DriverWork IS NOT NULL) THEN e.Sum - ISNULL(e.NDS, 0) ELSE 0 END) AS WashingExpenses,
-        SUM(CASE WHEN de.ExpensesType = 'CustomsDuty' AND (e.ExpensesRef <> 0x86F5B68AC35E4EB511E679CAA0EBCC81 OR e.DriverWork IS NOT NULL) THEN e.Sum - ISNULL(e.NDS, 0) ELSE 0 END) AS CustomsDutyExpenses,
-        SUM(CASE WHEN de.ExpensesType = 'Parking' AND (e.ExpensesRef <> 0x86F5B68AC35E4EB511E679CAA0EBCC81 OR e.DriverWork IS NOT NULL) THEN e.Sum - ISNULL(e.NDS, 0) ELSE 0 END) AS ParkingExpenses,
-        SUM(CASE WHEN de.ExpensesType = 'Fine' AND (e.ExpensesRef <> 0x86F5B68AC35E4EB511E679CAA0EBCC81 OR e.DriverWork IS NOT NULL) THEN e.Sum - ISNULL(e.NDS, 0) ELSE 0 END) AS FineExpenses,
-        SUM(CASE WHEN de.ExpensesType = 'Other' AND (e.ExpensesRef <> 0x86F5B68AC35E4EB511E679CAA0EBCC81 OR e.DriverWork IS NOT NULL) THEN e.Sum - ISNULL(e.NDS, 0) ELSE 0 END) AS OtherExpenses
+        SUM(CASE WHEN de.ExpensesType = 'AdBlue' AND (e.ExpensesRef <> 0x86F5B68AC35E4EB511E679CAA0EBCC81 OR e.DriverWork > 0) THEN e.Sum - ISNULL(e.NDS, 0) ELSE 0 END) AS AdBlueExpenses,
+        SUM(CASE WHEN de.ExpensesType = 'RoadTax' AND (e.ExpensesRef <> 0x86F5B68AC35E4EB511E679CAA0EBCC81 OR e.DriverWork > 0) THEN e.Sum - ISNULL(e.NDS, 0) ELSE 0 END) AS RoadTaxExpenses,
+        SUM(CASE WHEN de.ExpensesType = 'DriverSalary' AND e.DriverWork > 0 THEN e.Sum - ISNULL(e.NDS, 0) ELSE 0 END) AS DriverSalaryExpenses,
+        SUM(CASE WHEN de.ExpensesType = 'Washing' AND (e.ExpensesRef <> 0x86F5B68AC35E4EB511E679CAA0EBCC81 OR e.DriverWork > 0) THEN e.Sum - ISNULL(e.NDS, 0) ELSE 0 END) AS WashingExpenses,
+        SUM(CASE WHEN de.ExpensesType = 'CustomsDuty' AND (e.ExpensesRef <> 0x86F5B68AC35E4EB511E679CAA0EBCC81 OR e.DriverWork > 0) THEN e.Sum - ISNULL(e.NDS, 0) ELSE 0 END) AS CustomsDutyExpenses,
+        SUM(CASE WHEN de.ExpensesType = 'Parking' AND (e.ExpensesRef <> 0x86F5B68AC35E4EB511E679CAA0EBCC81 OR e.DriverWork > 0) THEN e.Sum - ISNULL(e.NDS, 0) ELSE 0 END) AS ParkingExpenses,
+        SUM(CASE WHEN de.ExpensesType = 'Fine' AND (e.ExpensesRef <> 0x86F5B68AC35E4EB511E679CAA0EBCC81 OR e.DriverWork > 0) THEN e.Sum - ISNULL(e.NDS, 0) ELSE 0 END) AS FineExpenses,
+        SUM(CASE WHEN de.ExpensesType = 'Other' AND (e.ExpensesRef <> 0x86F5B68AC35E4EB511E679CAA0EBCC81 OR e.DriverWork > 0) THEN e.Sum - ISNULL(e.NDS, 0) ELSE 0 END) AS OtherExpenses
     INTO #ExpensesByOrder
     FROM pbi.vb_Expenses e
     LEFT JOIN #DimExpenses de ON de.ExpRef = e.ExpensesRef
