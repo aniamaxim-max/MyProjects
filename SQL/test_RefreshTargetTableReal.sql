@@ -1,13 +1,30 @@
-﻿-- ТЕСТОВЫЙ ЗАПРОС: TargetTableReal из путевых листов + vb_Expenses (реал) + TargetTableFact (факт)
+﻿-- exec work.pbi.RefreshTargetTableReal '20260801'
+
+-- ТЕСТОВЫЙ ЗАПРОС: TargetTableReal из путевых листов + vb_Expenses (реал) + TargetTableFact (факт)
 -- Запускать в базе work
 DECLARE @StartDateParam DATETIME = '20260401'
 DECLARE @StartDate DATETIME = DATEADD(MONTH, -1, CAST(@StartDateParam AS DATE))
 
 -- =============================================
--- 1. AllOrders из путевых листов
---    Заявка подходит, если среди ВСЕХ её ПЛ (любая дата)
---    есть хотя бы один закрытый без флага:
---    DateRouteEnd IS NOT NULL AND RouteIsInProgress = 0
+-- 1. Источник дней на уровне заявки: "ПЛ" или "TargetTableFact".
+--    ПЛ берём, если ВСЕ задачи всех ПЛ заявки заполнены
+--    (StartFact_RShT, EndFact_RShT) и есть >=1 RouteIsInProgress = 0.
+-- =============================================
+IF OBJECT_ID('tempdb..#PlOrders') IS NOT NULL DROP TABLE #PlOrders;
+
+SELECT t.OrderRef
+INTO #PlOrders
+FROM pbi.vb_RouteSheet r
+INNER JOIN pbi.vb_RouteSheetTask t ON t.RouteSheetRef = r.RouteSheetRef
+WHERE t.OrderRef <> 0x00000000000000000000000000000000
+GROUP BY t.OrderRef
+HAVING SUM(CASE WHEN t.StartFact_RShT IS NOT NULL AND t.EndFact_RShT IS NOT NULL THEN 1 ELSE 0 END) = COUNT(*)
+   AND MAX(CASE WHEN r.RouteIsInProgress = 0 THEN 1 ELSE 0 END) = 1;
+
+CREATE CLUSTERED INDEX IX_PlOrders_Order ON #PlOrders(OrderRef);
+
+-- =============================================
+-- 1a. AllOrders из путевых листов (источник = ПЛ)
 -- =============================================
 IF OBJECT_ID('tempdb..#AllOrders') IS NOT NULL DROP TABLE #AllOrders;
 
@@ -25,20 +42,27 @@ SELECT t.OrderRef, r.TruckRef, r.DriverRef,
        MAX(t.EndFact_RShT) AS EndResult
 FROM pbi.vb_RouteSheet r
 INNER JOIN pbi.vb_RouteSheetTask t ON t.RouteSheetRef = r.RouteSheetRef
+INNER JOIN #PlOrders po ON po.OrderRef = t.OrderRef
 WHERE t.OrderRef <> 0x00000000000000000000000000000000
-  AND r.DateRouteEnd >= @StartDate
-  AND t.OrderRef IN (
-      SELECT t2.OrderRef
-      FROM pbi.vb_RouteSheet r2
-      INNER JOIN pbi.vb_RouteSheetTask t2 ON t2.RouteSheetRef = r2.RouteSheetRef
-      WHERE t2.OrderRef <> 0x00000000000000000000000000000000
-      GROUP BY t2.OrderRef
-      HAVING MAX(CASE WHEN r2.DateRouteEnd IS NOT NULL AND r2.RouteIsInProgress = 0 THEN 1 ELSE 0 END) = 1
-  )
-GROUP BY t.OrderRef, r.TruckRef, r.DriverRef, r.RouteSheetRef;
+GROUP BY t.OrderRef, r.TruckRef, r.DriverRef, r.RouteSheetRef
+HAVING MAX(t.EndFact_RShT) >= @StartDate;
 
 CREATE INDEX IX_AO_Order ON #AllOrders(OrderRef);
 CREATE INDEX IX_AO_Truck_Start_End ON #AllOrders(TruckRef, StartResult, EndResult);
+
+-- =============================================
+-- 1b. FactOrders (источник = TargetTableFact)
+-- =============================================
+IF OBJECT_ID('tempdb..#FactOrders') IS NOT NULL DROP TABLE #FactOrders;
+
+SELECT DISTINCT CONVERT(binary(16), f.OrderRef, 2) AS OrderRef
+INTO #FactOrders
+FROM pbi.TargetTableFact f
+WHERE f.TargetDate >= @StartDate
+  AND f.OrderRef IS NOT NULL AND f.OrderRef <> ''
+  AND CONVERT(binary(16), f.OrderRef, 2) NOT IN (SELECT OrderRef FROM #PlOrders);
+
+CREATE CLUSTERED INDEX IX_FactOrders_Order ON #FactOrders(OrderRef);
 
 -- =============================================
 -- 2. Материализация справочников
@@ -54,14 +78,14 @@ IF OBJECT_ID('tempdb..#DimOrders') IS NOT NULL DROP TABLE #DimOrders;
 SELECT OrderRef, TruckReff, DriverReff, ManagerReff, RouteReff, ClientReff
 INTO #DimOrders
 FROM pbi.vb_DimOrders
-WHERE OrderRef IN (SELECT OrderRef FROM #AllOrders);
+WHERE OrderRef IN (SELECT OrderRef FROM #AllOrders UNION SELECT OrderRef FROM #FactOrders);
 CREATE CLUSTERED INDEX IX_DimOrders_Ref ON #DimOrders(OrderRef);
 
 IF OBJECT_ID('tempdb..#OrderCost') IS NOT NULL DROP TABLE #OrderCost;
 SELECT OrderRef, SalesFactOrPlan
 INTO #OrderCost
 FROM pbi.vb_OrderCost
-WHERE OrderRef IN (SELECT OrderRef FROM #AllOrders);
+WHERE OrderRef IN (SELECT OrderRef FROM #AllOrders UNION SELECT OrderRef FROM #FactOrders);
 CREATE CLUSTERED INDEX IX_OC_Ref ON #OrderCost(OrderRef);
 
 IF OBJECT_ID('tempdb..#Quota') IS NOT NULL DROP TABLE #Quota;
@@ -210,22 +234,31 @@ CREATE TABLE #TargetTable (
     AddDownload       bit
 );
 
+-- Строки источника "Путевой лист"
 INSERT INTO #TargetTable(TruckRef, TargetDate, OrderRef, DriverRef)
-SELECT AO.TruckRef, C.CalDate, AO.OrderRef, AO.DriverRef
+SELECT DISTINCT AO.TruckRef, C.CalDate, AO.OrderRef, AO.DriverRef
 FROM #AllOrders AO
 INNER JOIN pbi.v_Calendar C ON C.CalDate BETWEEN AO.StartResult AND AO.EndResult;
 
+-- Строки источника "TargetTableFact"
+INSERT INTO #TargetTable(TruckRef, TargetDate, OrderRef, DriverRef)
+SELECT DISTINCT fr.TruckRef, fr.TargetDate, fr.OrderRef, fr.DriverRef
+FROM #FactRows fr
+INNER JOIN #FactOrders fo ON fo.OrderRef = fr.OrderRef
+WHERE fr.OrderRef IS NOT NULL;
+
+CREATE INDEX IX_TT_Truck_Date ON #TargetTable(TruckRef, TargetDate);
+
+-- Пустые машино-дни — после строк ОБОИХ источников
 INSERT INTO #TargetTable(TruckRef, TargetDate)
 SELECT DT.TruckReff, C.CalDate
 FROM pbi.v_Calendar C
 CROSS JOIN #Trucks DT
 WHERE C.CalDate >= @StartDate AND C.CalDate <= DATEADD(DAY, 30, CAST(GETDATE() AS DATE))
   AND NOT EXISTS (
-      SELECT 1 FROM #AllOrders A 
-      WHERE A.TruckRef = DT.TruckReff AND C.CalDate BETWEEN A.StartResult AND A.EndResult
+      SELECT 1 FROM #TargetTable T
+      WHERE T.TruckRef = DT.TruckReff AND T.TargetDate = C.CalDate
   );
-
-CREATE INDEX IX_TT_Truck_Date ON #TargetTable(TruckRef, TargetDate);
 
 -- =============================================
 -- 6. StatementRef
@@ -273,7 +306,7 @@ INNER JOIN (
 ) td ON td.TruckRef = tt.TruckRef AND td.TargetDate = tt.TargetDate;
 
 -- =============================================
--- 11. OrderWeight (по реальным заказам, ДО backfill)
+-- 11. OrderWeight (по заявкам обоих источников)
 -- =============================================
 IF OBJECT_ID('tempdb..#OrderWeight') IS NOT NULL DROP TABLE #OrderWeight;
 
@@ -323,7 +356,7 @@ FROM pbi.vb_Expenses e
 LEFT JOIN #DimExpenses de ON de.ExpRef = e.ExpensesRef
 LEFT JOIN #Trucks dt ON dt.TruckReff = e.TruckReff
 WHERE e.Date >= @StartDate
-  AND e.OrderRef IN (SELECT OrderRef FROM #AllOrders)
+  AND e.OrderRef IN (SELECT OrderRef FROM #AllOrders UNION SELECT OrderRef FROM #FactOrders)
   AND NOT (e.RegReffTable = 556 
            AND e.NomReff IN (0x85C3EE1D35F1718111E69C4735E7BE1A, 0x85C3EE1D35F1718111E69C51E454684D))
 GROUP BY e.OrderRef;
@@ -345,34 +378,6 @@ SET
 FROM #TargetTable tt
 LEFT JOIN #OrderWeight ow ON ow.OrderRef = tt.OrderRef
 LEFT JOIN #ExpensesByOrder eb ON eb.OrderRef = tt.OrderRef;
-
--- =============================================
--- 15. Backfill из TargetTableFact
---     Берем ТОЛЬКО заказы, которых нет в Real (#AllOrders) —
---     если заказ уже встречался в Real, его в пустые дни не добавляем.
--- =============================================
-UPDATE tt
-SET 
-    tt.OrderRef = fb.OrderRef,
-    tt.DriverRef = fb.DriverRef,
-    tt.StatementRef = CASE WHEN tt.StatementRef IS NULL THEN fb.StatementRef ELSE tt.StatementRef END,
-    tt.DayPart = fb.DayPart,
-    tt.IncomePerDay = fb.IncomePerDay
-FROM #TargetTable tt
-INNER JOIN #FactRows fb 
-    ON fb.TruckRef = tt.TruckRef AND fb.TargetDate = tt.TargetDate AND fb.RN = 1
-WHERE tt.OrderRef IS NULL
-  AND fb.OrderRef IS NOT NULL
-  AND fb.OrderRef NOT IN (SELECT OrderRef FROM #AllOrders);
-
--- =============================================
--- 16. IsPaidStatement, DurationStatement (после backfill)
--- =============================================
-UPDATE tt
-SET tt.IsPaidStatement = CASE WHEN ST.StatementType4 = N'Без оплати' THEN 0 ELSE 1 END,
-    tt.DurationStatement = CASE WHEN ST.StatementType1 = N'Простой' THEN 0 ELSE 1 END
-FROM #TargetTable tt
-LEFT JOIN pbi.vb_StatementType ST ON ST.StatementTypeRef = tt.StatementRef;
 
 -- =============================================
 -- 17. LastDriver (для истинно пустых дней)
@@ -425,7 +430,7 @@ OUTER APPLY (
 ) fr;
 
 -- =============================================
--- 20. FactOrderWeight (после backfill)
+-- 20. FactOrderWeight
 -- =============================================
 IF OBJECT_ID('tempdb..#FactOrderWeight') IS NOT NULL DROP TABLE #FactOrderWeight;
 
@@ -485,7 +490,7 @@ WHERE OrderRef IN (SELECT OrderRef FROM #TargetTable WHERE OrderRef IS NOT NULL)
 
 CREATE CLUSTERED INDEX IX_OEF_Order ON #OrderEndFact(OrderRef);
 
--- Заполняем AddDownload по всем заказам (реальные + backfill), пустые дни -> NULL
+-- Заполняем AddDownload по всем заявкам (оба источника), пустые дни -> NULL
 UPDATE tt
 SET tt.AddDownload = oef.AddDownload
 FROM #TargetTable tt

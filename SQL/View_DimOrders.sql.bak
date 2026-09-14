@@ -114,35 +114,6 @@ Create view pbi.v_DimOrders AS
     --,PlanWeight.PlanWeight
     --,PlanWeight.ExactWeight
     ,CONVERT(VARCHAR(MAX), _Document650._Fld17728RRef, 2) AS CargoType
-    ,CASE
-        WHEN _Document650._Fld17728RRef = 0x931A8B6411C0FD9211E70D85A447F759 THEN N'TDI'
-        WHEN _Document650._Fld17728RRef = 0xA098EA54414BF79211E7145C86DF392A THEN
-            CASE
-                WHEN dt.LastTruckCompanyReff = 0x86F7D6671738F3EC11E65341D132A9CC THEN
-                    CASE pr.RouteType
-                        WHEN N'Імпорт' THEN N'Імпорт зріджені гази'
-                        WHEN N'Україна' THEN N'Україна зріджені гази'
-                    END
-                ELSE
-                    CASE pr.RouteTypeTrimex
-                        WHEN N'Імпорт' THEN N'Імпорт зріджені гази'
-                    END
-            END
-        WHEN dt.LastTruckCompanyReff = 0x86F7D6671738F3EC11E65341D132A9CC THEN
-            CASE pr.RouteType
-                WHEN N'Імпорт' THEN N'Імпорт'
-                WHEN N'Експорт' THEN N'Експорт'
-                WHEN N'Європа' THEN N'Європа'
-                WHEN N'Україна' THEN N'Україна'
-            END
-        WHEN dt.LastTruckCompanyReff = 0x9615A4875CF5B4BC11E654B43D80BD63 THEN
-            CASE pr.RouteTypeTrimex
-                WHEN N'Імпорт' THEN N'Імпорт'
-                WHEN N'Експорт' THEN N'Експорт'
-                WHEN N'Європа' THEN N'Європа'
-                WHEN N'Польща' THEN N'Європа'
-            END
-    END AS QuotaType
     FROM work.dbo._Document650
     INNER JOIN
     (
@@ -180,8 +151,6 @@ Create view pbi.v_DimOrders AS
     WHERE
     	NOT(_Enum26798._EnumOrder IN (2, 6))
     ) AS Statments ON _Document650._Fld17685RRef = Statments._IDRRef
-    LEFT JOIN pbi.vb_DimTrucks dt ON dt.TruckReff = _Document650._Fld17698_RRRef
-    LEFT JOIN pbi.vb_PivotRoute pr ON pr.PivotRouteRef = _Document650._Fld17700RRef
     /*LEFT JOIN work.dbo._Reference162 ON _Document650._Fld17679RRef = _Reference162._IDRRef
     LEFT JOIN (SELECT *, CASE _Enum1144._EnumOrder WHEN 0 THEN 'Перевозки собственным транспортом'	WHEN 1 THEN 'Экспедирование' END AS 'OperatType' FROM work.dbo._Enum1144/* WHERE _EnumOrder = 0*/) as OperTypes ON _Document650._Fld17702RRef = OperTypes._IDRRef
     LEFT JOIN work.dbo._Reference289 AS ContainerNames ON _Document650._Fld17719_RRRef = ContainerNames._IDRRef
@@ -272,38 +241,7 @@ Create view pbi.vb_DimOrders AS
 				THEN 1 
             ELSE 0 END AS BIT) AS 'Active' 
     , _Document650._Fld17728RRef AS CargoType
-    ,CASE
-        WHEN _Document650._Fld17728RRef = 0x931A8B6411C0FD9211E70D85A447F759 THEN N'TDI'
-        WHEN _Document650._Fld17728RRef = 0xA098EA54414BF79211E7145C86DF392A THEN
-            CASE
-                WHEN dt.LastTruckCompanyReff = 0x86F7D6671738F3EC11E65341D132A9CC THEN
-                    CASE pr.RouteType
-                        WHEN N'Імпорт' THEN N'Імпорт зріджені гази'
-                        WHEN N'Україна' THEN N'Україна зріджені гази'
-                    END
-                ELSE
-                    CASE pr.RouteTypeTrimex
-                        WHEN N'Імпорт' THEN N'Імпорт зріджені гази'
-                    END
-            END
-        WHEN dt.LastTruckCompanyReff = 0x86F7D6671738F3EC11E65341D132A9CC THEN
-            CASE pr.RouteType
-                WHEN N'Імпорт' THEN N'Імпорт'
-                WHEN N'Експорт' THEN N'Експорт'
-                WHEN N'Європа' THEN N'Європа'
-                WHEN N'Україна' THEN N'Україна'
-            END
-        WHEN dt.LastTruckCompanyReff = 0x9615A4875CF5B4BC11E654B43D80BD63 THEN
-            CASE pr.RouteTypeTrimex
-                WHEN N'Імпорт' THEN N'Імпорт'
-                WHEN N'Експорт' THEN N'Експорт'
-                WHEN N'Європа' THEN N'Європа'
-                WHEN N'Польща' THEN N'Європа'
-            END
-    END AS QuotaType
     FROM work.dbo._Document650
-    LEFT JOIN pbi.vb_DimTrucks dt ON dt.TruckReff = _Document650._Fld17698_RRRef
-    LEFT JOIN pbi.vb_PivotRoute pr ON pr.PivotRouteRef = _Document650._Fld17700RRef
  	WHERE _Document650._Posted = 0x01 AND
 	   _Document650._Fld17685RRef NOT IN (0xA0C10503CE54D6E848C4F4190A4E05BC, 0xB7CC74CE4579F3A7446ED6CC7227830A)
 	  AND  _Fld17708 = 0x00

@@ -27,6 +27,20 @@ WITH cte_Months AS (
     FROM pbi.v_Calendar dr
     WHERE DAY(dr.CalDate) = 1 -- Залишаємо тільки 1-ше число кожного місяця
 ),
+cte_SpecialClasses AS (
+    -- Класи, що рахуються за "тримексівською" схемою:
+    --   ставка без +150, податок Num = 2, EUR = ставка / EURRate + TaxSum / 30
+    SELECT Class FROM (VALUES
+        (0x924F02B31CC3E40111EFA648B0A9D130), -- Клас 10
+        (0x80B902B31CC3E40111F16BD4E462D93E), -- Клас Trimex 1
+        (0x80B902B31CC3E40111F1AC3EA991E3E9), -- Клас Trimex 350
+        (0x80B902B31CC3E40111F1AC3D83AF7FBA), -- Клас Trimex 365
+        (0x80B902B31CC3E40111F16BD937C916E0), -- Клас Trimex 380
+        (0x80B902B31CC3E40111F16BD937C916E1), -- Клас Trimex 390
+        (0x80B902B31CC3E40111F19643117DEA57), -- Клас Trimex 400
+        (0x80B902B31CC3E40111F1ADCCCE8B2872)  -- Клас Trimex 410
+    ) v(Class)
+),
 
 cte_DriversHistoric AS (
     -- 2. Для кожного 1-го числа місяця шукаємо клас водія, який діяв НА ТУ ДАТУ
@@ -34,6 +48,7 @@ cte_DriversHistoric AS (
         m.SnapshotDate,
         CL._Fld33135RRef AS Driver,
         CL._Fld33136RRef AS Class,
+        CASE WHEN EXISTS (SELECT 1 FROM cte_SpecialClasses sc WHERE sc.Class = CL._Fld33136RRef) THEN 1 ELSE 0 END AS IsSpecialClass,
         ROW_NUMBER() OVER (
             PARTITION BY m.SnapshotDate, CL._Fld33135RRef
             ORDER BY IIF(CL._Period >= DATEFROMPARTS(4001,1,1), DATEADD(YEAR, -2000, CL._Period), CL._Period) DESC
@@ -51,8 +66,7 @@ cte_RatesHistoric AS (
         R._Fld34210RRef AS Currency,
         R._Fld34210RRef AS CurrencyRef,
         CASE
-            WHEN R._Fld33138RRef IN (0x924F02B31CC3E40111EFA648B0A9D130, 0x80B902B31CC3E40111F16BD937C916E1, 
-                                     0x80B902B31CC3E40111F16BD4E462D93E, 0x80B902B31CC3E40111F16BD937C916E0, 0x80B902B31CC3E40111F19643117DEA57)
+            WHEN EXISTS (SELECT 1 FROM cte_SpecialClasses sc WHERE sc.Class = R._Fld33138RRef) 
             THEN (R._Fld33140) 
             ELSE (R._Fld33140 + 150) END
         AS DriverSalaryPerDay,
@@ -75,8 +89,8 @@ SELECT
     rh.DriverSalaryPerDay,
     -- Розрахунки з курсом EUR на 1-ше число конкретного місяця
     rh.DriverSalaryPerDay / NULLIF(dr.EURRate, 0) AS DriverSalaryPerDayNoTaxEUR,
-    CASE WHEN dh.Class IN (0x924F02B31CC3E40111EFA648B0A9D130, 0x80B902B31CC3E40111F16BD937C916E1, 0x80B902B31CC3E40111F16BD4E462D93E, 0x80B902B31CC3E40111F16BD937C916E0, 0x80B902B31CC3E40111F19643117DEA57) THEN (dt.TaxSum / 30.0) ELSE (dt.TaxSum / 30.0) / NULLIF(dr.EURRate, 0) END AS DriverTaxEUR,
-    CASE WHEN dh.Class IN (0x924F02B31CC3E40111EFA648B0A9D130, 0x80B902B31CC3E40111F16BD937C916E1, 0x80B902B31CC3E40111F16BD4E462D93E, 0x80B902B31CC3E40111F16BD937C916E0, 0x80B902B31CC3E40111F19643117DEA57) THEN (rh.DriverSalaryPerDay / NULLIF(dr.EURRate, 0)) + (dt.TaxSum / 30.0) ELSE (rh.DriverSalaryPerDay + (dt.TaxSum / 30.0)) / NULLIF(dr.EURRate, 0) END AS DriverSalaryPerDayEUR,
+    CASE WHEN dh.IsSpecialClass = 1 THEN (dt.TaxSum / 30.0) ELSE (dt.TaxSum / 30.0) / NULLIF(dr.EURRate, 0) END AS DriverTaxEUR,
+    CASE WHEN dh.IsSpecialClass = 1 THEN (rh.DriverSalaryPerDay / NULLIF(dr.EURRate, 0)) + (dt.TaxSum / 30.0) ELSE (rh.DriverSalaryPerDay + (dt.TaxSum / 30.0)) / NULLIF(dr.EURRate, 0) END AS DriverSalaryPerDayEUR,
     dr.EURRate,
     dt.TaxSum
 FROM cte_DriversHistoric dh
@@ -88,8 +102,8 @@ CROSS APPLY (
     FROM pbi.vb_DriverTax t
     WHERE t.PeriodStart <= dh.SnapshotDate
       AND (
-          (dh.Class IN (0x924F02B31CC3E40111EFA648B0A9D130, 0x80B902B31CC3E40111F16BD937C916E1, 0x80B902B31CC3E40111F16BD4E462D93E, 0x80B902B31CC3E40111F16BD937C916E0, 0x80B902B31CC3E40111F19643117DEA57) AND t.Num = 2) OR 
-          (dh.Class NOT IN (0x924F02B31CC3E40111EFA648B0A9D130, 0x80B902B31CC3E40111F16BD937C916E1, 0x80B902B31CC3E40111F16BD4E462D93E, 0x80B902B31CC3E40111F16BD937C916E0, 0x80B902B31CC3E40111F19643117DEA57) AND t.Num = 1)
+          (dh.IsSpecialClass = 1 AND t.Num = 2) OR 
+          (dh.IsSpecialClass = 0 AND t.Num = 1)
       )
     ORDER BY t.PeriodStart DESC
 ) dt
@@ -115,6 +129,20 @@ WITH cte_Months AS (
     FROM pbi.v_Calendar dr
     WHERE DAY(dr.CalDate) = 1 -- Залишаємо тільки 1-ше число кожного місяця
 ),
+cte_SpecialClasses AS (
+    -- Класи, що рахуються за "тримексівською" схемою:
+    --   ставка без +150, податок Num = 2, EUR = ставка / EURRate + TaxSum / 30
+    SELECT Class FROM (VALUES
+        (0x924F02B31CC3E40111EFA648B0A9D130), -- Клас 10
+        (0x80B902B31CC3E40111F16BD4E462D93E), -- Клас Trimex 1
+        (0x80B902B31CC3E40111F1AC3EA991E3E9), -- Клас Trimex 350
+        (0x80B902B31CC3E40111F1AC3D83AF7FBA), -- Клас Trimex 365
+        (0x80B902B31CC3E40111F16BD937C916E0), -- Клас Trimex 380
+        (0x80B902B31CC3E40111F16BD937C916E1), -- Клас Trimex 390
+        (0x80B902B31CC3E40111F19643117DEA57), -- Клас Trimex 400
+        (0x80B902B31CC3E40111F1ADCCCE8B2872)  -- Клас Trimex 410
+    ) v(Class)
+),
 
 cte_DriversHistoric AS (
     -- 2. Для кожного 1-го числа місяця шукаємо клас водія, який діяв НА ТУ ДАТУ
@@ -122,6 +150,7 @@ cte_DriversHistoric AS (
         m.SnapshotDate,
         CL._Fld33135RRef AS Driver,
         CL._Fld33136RRef AS Class,
+        CASE WHEN EXISTS (SELECT 1 FROM cte_SpecialClasses sc WHERE sc.Class = CL._Fld33136RRef) THEN 1 ELSE 0 END AS IsSpecialClass,
         ROW_NUMBER() OVER (
             PARTITION BY m.SnapshotDate, CL._Fld33135RRef
             ORDER BY IIF(CL._Period >= DATEFROMPARTS(4001,1,1), DATEADD(YEAR, -2000, CL._Period), CL._Period) DESC
@@ -138,8 +167,7 @@ cte_RatesHistoric AS (
         R._Fld34210RRef AS Currency,
         R._Fld34210RRef AS CurrencyRef,
         CASE
-            WHEN R._Fld33138RRef IN (0x924F02B31CC3E40111EFA648B0A9D130, 0x80B902B31CC3E40111F16BD937C916E1, 
-                                     0x80B902B31CC3E40111F16BD4E462D93E, 0x80B902B31CC3E40111F16BD937C916E0, 0x80B902B31CC3E40111F19643117DEA57)
+            WHEN EXISTS (SELECT 1 FROM cte_SpecialClasses sc WHERE sc.Class = R._Fld33138RRef) 
             THEN (R._Fld33140) 
             ELSE (R._Fld33140 + 150) END
         AS DriverSalaryPerDay,
@@ -162,8 +190,8 @@ SELECT
     rh.DriverSalaryPerDay,
     -- Розрахунки з курсом EUR на 1-ше число конкретного місяця
     rh.DriverSalaryPerDay / NULLIF(dr.EURRate, 0) AS DriverSalaryPerDayNoTaxEUR,
-    CASE WHEN dh.Class IN (0x924F02B31CC3E40111EFA648B0A9D130, 0x80B902B31CC3E40111F16BD937C916E1, 0x80B902B31CC3E40111F16BD4E462D93E, 0x80B902B31CC3E40111F16BD937C916E0, 0x80B902B31CC3E40111F19643117DEA57) THEN (dt.TaxSum / 30.0) ELSE (dt.TaxSum / 30.0) / NULLIF(dr.EURRate, 0) END AS DriverTaxEUR,
-    CASE WHEN dh.Class IN (0x924F02B31CC3E40111EFA648B0A9D130, 0x80B902B31CC3E40111F16BD937C916E1, 0x80B902B31CC3E40111F16BD4E462D93E, 0x80B902B31CC3E40111F16BD937C916E0, 0x80B902B31CC3E40111F19643117DEA57) THEN (rh.DriverSalaryPerDay / NULLIF(dr.EURRate, 0)) + (dt.TaxSum / 30.0) ELSE (rh.DriverSalaryPerDay + (dt.TaxSum / 30.0)) / NULLIF(dr.EURRate, 0) END AS DriverSalaryPerDayEUR,
+    CASE WHEN dh.IsSpecialClass = 1 THEN (dt.TaxSum / 30.0) ELSE (dt.TaxSum / 30.0) / NULLIF(dr.EURRate, 0) END AS DriverTaxEUR,
+    CASE WHEN dh.IsSpecialClass = 1 THEN (rh.DriverSalaryPerDay / NULLIF(dr.EURRate, 0)) + (dt.TaxSum / 30.0) ELSE (rh.DriverSalaryPerDay + (dt.TaxSum / 30.0)) / NULLIF(dr.EURRate, 0) END AS DriverSalaryPerDayEUR,
     dr.EURRate,
     dt.TaxSum
 FROM cte_DriversHistoric dh
@@ -175,8 +203,8 @@ CROSS APPLY (
     FROM pbi.vb_DriverTax t
     WHERE t.PeriodStart <= dh.SnapshotDate
       AND (
-          (dh.Class IN (0x924F02B31CC3E40111EFA648B0A9D130, 0x80B902B31CC3E40111F16BD937C916E1, 0x80B902B31CC3E40111F16BD4E462D93E, 0x80B902B31CC3E40111F16BD937C916E0, 0x80B902B31CC3E40111F19643117DEA57) AND t.Num = 2) OR 
-          (dh.Class NOT IN (0x924F02B31CC3E40111EFA648B0A9D130, 0x80B902B31CC3E40111F16BD937C916E1, 0x80B902B31CC3E40111F16BD4E462D93E, 0x80B902B31CC3E40111F16BD937C916E0, 0x80B902B31CC3E40111F19643117DEA57) AND t.Num = 1)
+          (dh.IsSpecialClass = 1 AND t.Num = 2) OR 
+          (dh.IsSpecialClass = 0 AND t.Num = 1)
       )
     ORDER BY t.PeriodStart DESC
 ) dt

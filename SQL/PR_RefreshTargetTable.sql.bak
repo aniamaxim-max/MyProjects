@@ -1,5 +1,5 @@
 -- exec work.pbi.RefreshTargetTable '20260801', 'F'
--- select * from pbi.TargetTableFact where OrderRef IN('80B902B31CC3E40111F1A8606FF30BF2')
+-- select * from pbi.TargetTableFact where OrderRef IN('80B902B31CC3E40111F1811C6A97C7EC', '80B902B31CC3E40111F18752D950CB41', '80B902B31CC3E40111F17C49AD664DAB')
 -- where tRUCKRef = '8FC8E82DAA1C02A111EBC794BE09EECD' AND TARGETDATE >= '20260601' order by TargetDate desc
 
 /* !!!!!!!!!для джоба!!!!!!!!!
@@ -70,12 +70,11 @@ BEGIN
 		ManagerReff binary(16), 
 		RouteReff binary(16), 
 		ClientReff binary(16),
-		AddDownload bit,
-		QuotaType nvarchar(50)
+		AddDownload bit
 	);
 
 	INSERT INTO #DimOrders
-	SELECT OrderRef, TruckReff, DriverReff, ManagerReff, RouteReff, ClientReff, AddDownload, QuotaType	
+	SELECT OrderRef, TruckReff, DriverReff, ManagerReff, RouteReff, ClientReff, AddDownload	
 	FROM pbi.vb_DimOrders
 	WHERE OrderRef IN (SELECT OrderRef FROM #WorkDays);
 
@@ -184,11 +183,6 @@ BEGIN
 	    DROP TABLE #TargetTable;
 
     create table #TargetTable (
-        RowId             int identity(1,1),
-        QuotaType         nvarchar(50),
-        QuotaTypeEff      nvarchar(50),
-        HasPrevTrip       bit,
-        PrevQuotaType     nvarchar(50),
         TruckRef          binary(16),
         TargetDate        datetime,
 	    OrderRef          binary(16),
@@ -374,100 +368,22 @@ BEGIN
     SET e.MarginPerDay = e.IncomePerDay - e.ExpensesPerDayWithoutSalary - e.DriverSalaryPerDay
     FROM #TargetTable e
 
-        -- =============================================
-    -- QuotaPerDay за типом рейсу (QuotaType)
-    -- =============================================
     UPDATE e
-    SET e.QuotaType = do.QuotaType
-    FROM #TargetTable e
-    INNER JOIN #DimOrders do ON do.OrderRef = e.OrderRef;
-
-    IF OBJECT_ID('tempdb..#SeedTripType') IS NOT NULL DROP TABLE #SeedTripType;
-
-    ;WITH cte_Seed AS (
-        SELECT do.TruckReff AS TruckRef, do.QuotaType,
-               ROW_NUMBER() OVER (PARTITION BY do.TruckReff
-                   ORDER BY COALESCE(do.EndFact, do.EndPlan, do.OrderDate) DESC, do.OrderRef DESC) AS RN
-        FROM pbi.vb_DimOrders do
-        WHERE COALESCE(do.EndFact, do.EndPlan, do.OrderDate) < @StartDate
-          AND COALESCE(do.EndFact, do.EndPlan, do.OrderDate) >= DATEADD(YEAR, -2, @StartDate)
-          AND do.TruckReff IN (SELECT DISTINCT TruckRef FROM #TargetTable WHERE OrderRef IS NULL)
-    )
-    SELECT TruckRef, QuotaType
-    INTO #SeedTripType
-    FROM cte_Seed
-    WHERE RN = 1;
-
-    CREATE CLUSTERED INDEX IX_SeedTripType ON #SeedTripType(TruckRef);
-
-    IF OBJECT_ID('tempdb..#PrevTrip') IS NOT NULL DROP TABLE #PrevTrip;
-    CREATE TABLE #PrevTrip (RowId int primary key, HasPrev bit, PrevQuotaType nvarchar(50));
-
-    ;WITH cte_Last AS (
-        SELECT RowId, TruckRef, TargetDate, OrderRef, QuotaType,
-               MAX(CASE WHEN OrderRef IS NOT NULL THEN TargetDate END)
-                   OVER (PARTITION BY TruckRef ORDER BY TargetDate
-                         ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS LastTripDate
-        FROM #TargetTable
-    )
-    INSERT INTO #PrevTrip (RowId, HasPrev, PrevQuotaType)
-    SELECT L.RowId,
-           MAX(CASE WHEN P.OrderRef IS NOT NULL THEN 1 ELSE 0 END),
-           MAX(P.QuotaType)
-    FROM cte_Last L
-    LEFT JOIN #TargetTable P
-        ON P.TruckRef = L.TruckRef
-       AND P.TargetDate = L.LastTripDate
-    GROUP BY L.RowId;
-
-    UPDATE e
-    SET e.HasPrevTrip = CASE WHEN pt.HasPrev = 1 OR sd.TruckRef IS NOT NULL THEN 1 ELSE 0 END,
-        e.PrevQuotaType = CASE WHEN pt.HasPrev = 1 THEN pt.PrevQuotaType
-                               WHEN sd.TruckRef IS NOT NULL THEN sd.QuotaType
-                               ELSE NULL END
-    FROM #TargetTable e
-    LEFT JOIN #PrevTrip pt ON pt.RowId = e.RowId
-    LEFT JOIN #SeedTripType sd ON sd.TruckRef = e.TruckRef;
-
-    UPDATE e
-    SET e.QuotaTypeEff =
-        CASE
-            WHEN e.OrderRef IS NOT NULL THEN ISNULL(e.QuotaType, N'Невідомо')
-            WHEN st.StatementType2 = N'Ремонт' THEN N'Ремонт'
-            WHEN e.HasPrevTrip = 0 THEN N'Немає'
-            ELSE
-                CASE ISNULL(e.PrevQuotaType, N'Невідомо')
-                    WHEN N'Експорт' THEN N'Імпорт'
-                    WHEN N'Європа' THEN N'Імпорт'
-                    WHEN N'Імпорт' THEN N'Експорт'
-                    WHEN N'Україна' THEN N'Україна'
-                    WHEN N'Імпорт зріджені гази' THEN N'Україна зріджені гази'
-                    WHEN N'Україна зріджені гази' THEN N'Імпорт зріджені гази'
-                    WHEN N'TDI' THEN N'TDI'
-                    ELSE N'Невідомо'
-                END
-        END
-    FROM #TargetTable e
-    LEFT JOIN pbi.vb_StatementType st ON st.StatementTypeRef = e.StatementRef;
-
-    UPDATE e
-    SET 
-        e.BreakEvenPointPerDay = ISNULL(q.BreakEvenPoint * e.DayPart, 0),
-        e.QuotaPerDay = ISNULL((CASE e.QuotaTypeEff
-            WHEN N'Імпорт' THEN q.QuotaImport
-            WHEN N'Експорт' THEN q.QuotaExport
-            WHEN N'Європа' THEN q.QuotaExport
-            WHEN N'Україна' THEN q.QuotaUkraine
-            WHEN N'TDI' THEN q.QuotaTDI
-            WHEN N'Імпорт зріджені гази' THEN q.QuotaEuropeLinde
-            WHEN N'Україна зріджені гази' THEN q.QuotaUkraineLinde
-            WHEN N'Невідомо' THEN q.Quota
-            ELSE 0 END), 0) * e.DayPart
-    FROM #TargetTable e
-    LEFT JOIN pbi.vb_DimTrucks dt ON dt.TruckReff = e.TruckRef
-    LEFT JOIN pbi.vb_Quota q ON q.CompanyRef = dt.LastTruckCompanyReff 
-        AND MONTH(q.[Period]) = MONTH(e.TargetDate) 
-        AND YEAR(q.[Period]) = YEAR(e.TargetDate)
+	SET 
+		e.BreakEvenPointPerDay = ISNULL(q.BreakEvenPoint * e.DayPart, 0),
+		e.QuotaPerDay = ISNULL((CASE
+			WHEN pr.RouteType = 'Україна' AND do.ClientReff = 0xACEFD32FEC9A2DE011E680D1BDE456FD THEN q.QuotaUkraineLinde
+			WHEN pr.RouteType <> 'Україна' AND do.ClientReff = 0xACEFD32FEC9A2DE011E680D1BDE456FD THEN q.QuotaEuropeLinde
+			WHEN dt.Description3 = 'Україна' THEN q.QuotaUkraine
+			WHEN dt.Description3 IN ('Європа', 'Трімекс') THEN q.QuotaEurope
+			ELSE 0 END), 0) * e.DayPart
+	FROM #TargetTable e
+	LEFT JOIN pbi.vb_DimTrucks dt ON dt.TruckReff = e.TruckRef
+	LEFT JOIN pbi.vb_Quota q ON q.CompanyRef = dt.LastTruckCompanyReff 
+		AND MONTH(q.[Period]) = MONTH(e.TargetDate) 
+		AND YEAR(q.[Period]) = YEAR(e.TargetDate)
+	LEFT JOIN #DimOrders do ON do.OrderRef = e.OrderRef
+	LEFT JOIN pbi.vb_PivotRoute pr ON pr.PivotRouteRef = do.RouteReff  
 
 
     --select * from #TargetTable
@@ -536,8 +452,6 @@ BEGIN
 	DROP TABLE #DimOrders
 	DROP TABLE #Statements
 	DROP TABLE #MaterialCosts
-	DROP TABLE #SeedTripType
-	DROP TABLE #PrevTrip
 	DROP TABLE #DriverSalary
 
 END
