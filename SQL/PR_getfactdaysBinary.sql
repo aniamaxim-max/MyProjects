@@ -119,6 +119,7 @@ WHERE OrderRef IN (select OrderRef from #Orders)
         COUNT(*) AS TotalRows,
         -- скільки рядків з датою
         SUM(CASE WHEN t.EndFact_RShT IS NOT NULL THEN 1 ELSE 0 END) AS FilledRows,
+        SUM(CASE WHEN t.StartFact_RShT IS NOT NULL AND t.EndFact_RShT IS NOT NULL THEN 1 ELSE 0 END) AS FilledBothRows,
 		-- чи є хоча б один завершений сегмент
         MAX(CASE WHEN rs.RouteIsInProgress = 0 THEN 1 ELSE 0 END) AS HasCompletedSegment
     FROM #RouteSheetTask t
@@ -143,7 +144,7 @@ SELECT
     DO.EndFact AS EndDate,
     RD.NumOfDaysBefore AS EmptyBefore,
 	RD.NumOfDaysAfter AS EmptyAfter,
-	COALESCE(FD.MinStartFact, 
+	CASE WHEN FE.TotalRows > 0 AND FE.TotalRows = FE.FilledBothRows THEN FD.MinStartFact ELSE 
         DATEADD(
             DAY,
             -CASE 
@@ -152,7 +153,7 @@ SELECT
              END,
             CAST(DO.StartPlan AS date)
         )
-    ) AS FullStartDate,
+    END AS FullStartDate,
     CASE 
         WHEN FE.TotalRows > 0
              AND FE.TotalRows = FE.FilledRows

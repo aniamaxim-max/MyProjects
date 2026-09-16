@@ -1,13 +1,8 @@
-USE [work]
-GO
+-- exec work.pbi.GetFactDays '20260101'
 
-/****** Object:  StoredProcedure [pbi].[GetFactDays]    Script Date: 18.05.2026 15:38:49 ******/
-SET ANSI_NULLS ON
+IF EXISTS (SELECT * FROM sys.procedures WHERE name = 'GetFactDays' AND SCHEMA_NAME(schema_id) = 'pbi')
+    DROP PROCEDURE pbi.GetFactDays;
 GO
-
-SET QUOTED_IDENTIFIER ON
-GO
-
 
 CREATE PROCEDURE [pbi].[GetFactDays]
     @StartDateParam DATETIME
@@ -99,6 +94,7 @@ WHERE OrderRef IN (select OrderRef from pbi.v_DimOrders where OrderDate >= @Star
         COUNT(*) AS TotalRows,
         -- скільки рядків з датою
         SUM(CASE WHEN t.EndFact_RShT IS NOT NULL THEN 1 ELSE 0 END) AS FilledRows,
+        SUM(CASE WHEN t.StartFact_RShT IS NOT NULL AND t.EndFact_RShT IS NOT NULL THEN 1 ELSE 0 END) AS FilledBothRows,
 		-- чи є хоча б один завершений сегмент
         MAX(CASE WHEN rs.RouteIsInProgress = 0 THEN 1 ELSE 0 END) AS HasCompletedSegment
     FROM #RouteSheetTask t
@@ -123,7 +119,7 @@ SELECT
     DO.EndFact AS EndDate,
     RD.NumOfDaysBefore AS EmptyBefore,
 	RD.NumOfDaysAfter AS EmptyAfter,
-	COALESCE(FD.MinStartFact, 
+	CASE WHEN FE.TotalRows > 0 AND FE.TotalRows = FE.FilledBothRows THEN FD.MinStartFact ELSE 
         DATEADD(
             DAY,
             -CASE 
@@ -132,7 +128,7 @@ SELECT
              END,
             CAST(DO.StartPlan AS date)
         )
-    ) AS FullStartDate,
+    END AS FullStartDate,
     CASE 
         WHEN FE.TotalRows > 0
              AND FE.TotalRows = FE.FilledRows

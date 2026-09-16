@@ -1,6 +1,7 @@
 # Excel
 *.xlsx
 *.xls
+*.xlsb
 *.xlsm
 *.csv
 
@@ -37,6 +38,7 @@ Desktop.ini
 
 # SQLite data
 data/
+*.db
 
 # Env files
 .env
