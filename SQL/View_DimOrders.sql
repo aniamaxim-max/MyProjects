@@ -1,4 +1,4 @@
--- SELECT * from pbi.v_DimOrders where OrderRef = '80B902B31CC3E40111F1925C60386E59'
+-- SELECT * from pbi.v_DimOrders where OrderRef = '80B902B31CC3E40111F1AC4BA7DBB06E'
 -- SELECT * from pbi.vb_DimOrders 
 
 
@@ -170,6 +170,7 @@ Create view pbi.v_DimOrders AS
 			WHEN 18 THEN 'Создан'
 			WHEN 19 THEN 'Запланировано'
 			WHEN 20 THEN 'Справка-счет не нужна'
+            WHEN 21 THEN 'Скасовано'
 		END AS 'Statment',
 		CAST(
 			CASE

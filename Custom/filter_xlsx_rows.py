@@ -41,6 +41,7 @@ ATTR_CELL_R = re.compile(rb'(<c r="[A-Z]+)\d+(")')
 TAG_DIMENSION = re.compile(rb"<dimension ref=\"[^\"]*\"/>")
 DIMENSION_COL = re.compile(rb"<dimension ref=\"[^\"]*:([A-Z]+)\d+\"")
 DEFNAME_ROW = re.compile(rb"(\$[A-Z]{1,3}\$)\d+(</definedName>)")
+AUTOFILTER_ROW = re.compile(rb'(<autoFilter\b[^>]*\bref="[A-Z]+\d+:[A-Z]+)\d+(")')
 OVERRIDE_CALCCHAIN = re.compile(rb"<Override PartName=\"/xl/calcChain\.xml\"[^>]*/>")
 RELS_CALCCHAIN = re.compile(rb"<Relationship [^>]*calcChain\.xml\"[^>]*/>")
 TAG_CALCPR = re.compile(rb"<calcPr\b[^>]*/>")
@@ -198,7 +199,8 @@ def write_pass(zf, sheet_path, dst, col, threshold, header_rows, total_kept, las
                       else data.replace(b"<sheetData>", dimension + b"<sheetData>", 1))
             continue
         if kind == "suffix":
-            dst.write(data)
+            dst.write(AUTOFILTER_ROW.sub(
+                lambda m: m.group(1) + str(total_kept).encode() + m.group(2), data))
             continue
         seen += 1
         if verbose and seen % 100000 == 0:

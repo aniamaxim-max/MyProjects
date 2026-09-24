@@ -1,4 +1,4 @@
--- exec work.pbi.GetFactDaysBinary '20260101' exec work.pbi.GetFactDays '20260101'
+-- exec work.pbi.GetFactDaysBinary '20260901' exec work.pbi.GetFactDays '20260101'
 
 
 

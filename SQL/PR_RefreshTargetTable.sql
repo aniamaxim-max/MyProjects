@@ -1,5 +1,5 @@
--- exec work.pbi.RefreshTargetTable '20260801', 'F'
--- select * from pbi.TargetTableFact where OrderRef IN('80B902B31CC3E40111F1A8606FF30BF2')
+-- exec work.pbi.RefreshTargetTable '20260101', 'F'
+-- select * from pbi.TargetTableFact where OrderRef IN('80B902B31CC3E40111F1AC4BA7DBB06E')
 -- where tRUCKRef = '8FC8E82DAA1C02A111EBC794BE09EECD' AND TARGETDATE >= '20260601' order by TargetDate desc
 
 /* !!!!!!!!!הכÿ הזמבא!!!!!!!!!
