@@ -56,6 +56,13 @@ def export_and_send():
         print(f"Помилка при роботі з БД: {e}")
         return
 
+    if df.empty:
+        print("Звіт порожній — лист не відправлено.")
+        if os.path.exists(OUTPUT_FILE_FUELING):
+            os.remove(OUTPUT_FILE_FUELING)
+            print("Тимчасовий файл видалено.")
+        return
+
     # Email: тільки перші 10 рядків
     table_preview = df.head(10).to_html(index=False, border=0, classes="data-table")
 

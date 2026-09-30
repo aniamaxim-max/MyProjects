@@ -39,6 +39,10 @@ Desktop.ini
 # SQLite data
 data/
 *.db
+*.parquet
 
 # Env files
 .env
+
+# Local backups
+google/

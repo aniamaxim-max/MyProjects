@@ -30,6 +30,9 @@ DATE_FORMATS = ["%Y-%m-%d %H:%M:%S", "%Y-%m-%d", "%d.%m.%Y", "%d.%m.%y", "%d/%m/
 
 SQL_TYPES = {"TEXT": "TEXT", "DATE": "TEXT", "INTEGER": "INTEGER", "REAL": "REAL", "FLAG": "INTEGER"}
 
+EDRPOU_CODE = "Експорт - Код за ЄДРПОУ відправника, Імпорт - Код за ЄДРПОУ одержувача"
+EDRPOU_NAME = "Експорт - Найменування відправника, Імпорт - Найменування одержувача"
+
 
 def configure_stdout():
     try:
@@ -393,7 +396,24 @@ def create_database(conn, cfg):
     conn.execute(build_create_sql(cfg))
     conn.execute('CREATE INDEX "ix_%s_source_file" ON "%s" ("%s")' % (
         cfg["table"], cfg["table"], cfg["source_file_column"]))
+    create_views(conn, cfg)
     conn.commit()
+
+
+def create_views(conn, cfg):
+    """Справочник уникальных ЄДРПОУ -> название (первое по порядку загрузки)."""
+    t = cfg["table"]
+    c = EDRPOU_CODE.replace('"', '""')
+    n = EDRPOU_NAME.replace('"', '""')
+    conn.execute('CREATE INDEX IF NOT EXISTS "ix_%s_edrpou" ON "%s" ("%s")' % (t, t, c))
+    conn.execute('DROP VIEW IF EXISTS "v_edrpou"')
+    conn.execute(
+        'CREATE VIEW "v_edrpou" AS '
+        'SELECT d."%s" AS "ЄДРПОУ", d."%s" AS "Найменування" '
+        'FROM "%s" d '
+        'WHERE d."%s" IS NOT NULL AND TRIM(d."%s") <> \'\' '
+        'AND d.rowid = (SELECT MIN(x.rowid) FROM "%s" x WHERE x."%s" = d."%s")'
+        % (c, n, t, c, c, t, c, c))
 
 
 def insert_file(conn, path, cfg, canon):

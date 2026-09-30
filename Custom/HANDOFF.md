@@ -15,6 +15,8 @@
 - `columns_mapping.json` — каноническая схема (51 колонка + `source_file`) и правила маппинга.
   Правится без изменения кода: `rename` (имя источника → каноническая), `drop`, `special_rules`.
 - `load_customs.py` — загрузчик.
+- `export_customs.py` — выгрузка таблицы в Parquet для Power BI.
+- `export_edrpou.py` — справочник ЄДРПОУ (`v_edrpou` + `edrpou_export.parquet`).
 - `db-prep-instructions.md` — подробная инструкция по алгоритму и нормализации. **Читать вместе с этим файлом.**
 - `customs.db` — результат (`*.db` в `.gitignore`, не коммитится).
 
@@ -36,6 +38,12 @@
    ```
    (`--file` идемпотентен: удаляет строки с этим `source_file` и вставляет заново.)
 5. Проверить результат SQL-запросами (см. §6) и коротко отчитаться.
+
+Для Power BI (Анна публикует отчёт из Desktop) после догрузки файлов пересобрать выгрузки:
+```
+python "D:\projects\MyProjects\Custom\export_customs.py"
+python "D:\projects\MyProjects\Custom\export_edrpou.py"
+```
 
 Осторожно: `--init` грузит **все** `*.xlsx` из `Custom/`. Если в папке лежит лишний/ошибочный
 файл — сначала удалить его. `--init` нужен только при изменении схемы (добавили канонические

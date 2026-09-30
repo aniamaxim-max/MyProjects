@@ -6,7 +6,10 @@
 Артефакты:
 - `Custom/columns_mapping.json` — каноническая схема и правила маппинга (правятся без изменения кода).
 - `Custom/load_customs.py` — загрузчик с режимами `--init`, `--analyze`, `--file`.
+- `Custom/export_customs.py` — выгрузка таблицы в Parquet/CSV для Power BI.
+- `Custom/export_edrpou.py` — справочник ЄДРПОУ: вьюха `v_edrpou` в БД + `edrpou_export.parquet`.
 - `Custom/customs.db` — результат (в `.gitignore`, коммитить не нужно).
+- `Custom/customs_export.parquet`, `Custom/edrpou_export.parquet` — файлы для Power BI (в `.gitignore`).
 
 ## 1. Общие правила
 
@@ -144,3 +147,32 @@ python Custom/load_customs.py --file "2025-12-Е.xlsx"      # перезагру
   `Вартість, $/кг`, `Курс валюти НБУ, $`, `Додаткова одиниця виміру`, `Флексі` (пустая) и дубль
   имени `Валюта контракта`; `Дубль` в файле отсутствует — считается загрузчиком (в 2026-06-І
   8 945 строк помечены как дубли).
+
+## 9. Экспорт в файлы для Power BI
+
+Power BI не имеет коннектора к SQLite, а Python-источник капризен (pandas 3.x + враппер).
+Поэтому данные выгружаются в Parquet/CSV и грузятся штатным коннектором «Файл» в Desktop.
+
+### 9.1 Таблица деклараций
+```
+python Custom/export_customs.py                 # customs_export.parquet (все строки)
+python Custom/export_customs.py --no-duplicates # без строк, где Дубль = 1
+python Custom/export_customs.py --format csv    # customs_export.csv
+```
+В Power BI: `Получить данные → Файл → Parquet` → `Custom/customs_export.parquet`.
+Обновление: я догружаю файлы в `customs.db` → `python Custom/export_customs.py` →
+в Power BI `Обновить` → `Опубликовать` (в Service обновление не жать — Python/локальный файл).
+
+### 9.2 Справочник ЄДРПОУ
+```
+python Custom/export_edrpou.py                  # edrpou_export.parquet
+python Custom/export_edrpou.py --format csv
+```
+Что берётся:
+- уникальные **непустые** значения `Експорт - Код за ЄДРПОУ відправника, Імпорт - Код за ЄДРПОУ одержувача`
+  (как есть, без добивки нулями; РНОКПП ФОП и короткие значения тоже остаются);
+- соответствующее `Експорт - Найменування відправника, Імпорт - Найменування одержувача`;
+- при нескольких написаниях имени берётся **первое по порядку загрузки** (`rowid`).
+- колонки результата: `ЄДРПОУ`, `Найменування`.
+В БД создаётся вьюха `v_edrpou` (и индекс `ix_declarations_edrpou`); она пересоздаётся
+загрузчиком при `--init` и скриптом экспорта. Обновлять после догрузки новых файлов.

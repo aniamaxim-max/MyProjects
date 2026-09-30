@@ -37,7 +37,8 @@ BEGIN
       AND f.Period BETWEEN @FirstDate AND @LastDate
       AND (
           (f.CompanyRef = 0x9615A4875CF5B4BC11E654B43D80BD63 AND f.ManagementVAT = 0)
-          OR
+          -- ТИМЧАСОВО вимкнено: заправки по «Стеллар МВ, ТОВ»
+          /* OR
           (f.CompanyRef = 0x86F7D6671738F3EC11E65341D132A9CC AND (
                (cnt.CountryName IN (
                     N'Австрія', N'Австрия', N'AT',
@@ -63,6 +64,7 @@ BEGIN
                     N'Україна', N'Украина', N'UA'
                ) AND f.ManagementVAT <> 0)
           ))
+          */
       )
     ORDER BY [Організація], f.[Period];
 END

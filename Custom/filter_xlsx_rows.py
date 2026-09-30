@@ -41,6 +41,8 @@ ATTR_CELL_R = re.compile(rb'(<c r="[A-Z]+)\d+(")')
 TAG_DIMENSION = re.compile(rb"<dimension ref=\"[^\"]*\"/>")
 DIMENSION_COL = re.compile(rb"<dimension ref=\"[^\"]*:([A-Z]+)\d+\"")
 DEFNAME_ROW = re.compile(rb"(\$[A-Z]{1,3}\$)\d+(</definedName>)")
+DEFNAME_FILTER = re.compile(
+    rb"<definedName\b[^>]*\bname=\"_xlnm\._FilterDatabase\"[^>]*>.*?</definedName>", re.S)
 AUTOFILTER_ROW = re.compile(rb'(<autoFilter\b[^>]*\bref="[A-Z]+\d+:[A-Z]+)\d+(")')
 OVERRIDE_CALCCHAIN = re.compile(rb"<Override PartName=\"/xl/calcChain\.xml\"[^>]*/>")
 RELS_CALCCHAIN = re.compile(rb"<Relationship [^>]*calcChain\.xml\"[^>]*/>")
@@ -216,7 +218,13 @@ def write_pass(zf, sheet_path, dst, col, threshold, header_rows, total_kept, las
 
 
 def patch_workbook(data, kept):
-    data = DEFNAME_ROW.sub(lambda m: m.group(1) + str(kept).encode() + m.group(2), data)
+    # Обновляем диапазон только у встроенного имени фильтра; прочие definedName
+    # (например, пользовательский _2) не трогаем.
+    def patch_filter_name(match):
+        return DEFNAME_ROW.sub(
+            lambda m: m.group(1) + str(kept).encode() + m.group(2), match.group(0))
+
+    data = DEFNAME_FILTER.sub(patch_filter_name, data)
 
     def add_fullcalc(match):
         tag = match.group(0)
