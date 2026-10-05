@@ -2,7 +2,8 @@ SELECT
     ti._LineNo33004 AS Nom, 
     f._Description AS Driver,
     unpvt.DayNumber,
-    unpvt.FieldValue
+    unpvt.FieldValue,
+    t._Date_Time
 FROM _Document32999_VT33003 ti 
 INNER JOIN _Document32999 t 
     ON ti._Document32999_IDRRef = t._IDRRef 
@@ -19,5 +20,5 @@ CROSS APPLY (
         (25, ti._Fld33030), (26, ti._Fld33031), (27, ti._Fld33032), (28, ti._Fld33033),
         (29, ti._Fld33034), (30, ti._Fld33035), (31, ti._Fld33036)
 ) AS unpvt(DayNumber, FieldValue)
-WHERE t._Fld33000RRef = 0x90A102B31CC3E40111EDC23F750EDDA1 
-  AND t._Date_Time = '40260630 12:00:00';
+WHERE t._Fld33000RRef IN (0x90A102B31CC3E40111EDC23F750EDDA1, 0x90A102B31CC3E40111EDC23FA67A951B)
+  AND t._Date_Time >= '40260101 00:00:00';

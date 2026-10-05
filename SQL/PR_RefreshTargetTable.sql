@@ -77,7 +77,8 @@ BEGIN
 	INSERT INTO #DimOrders
 	SELECT OrderRef, TruckReff, DriverReff, ManagerReff, RouteReff, ClientReff, AddDownload, QuotaType	
 	FROM pbi.vb_DimOrders
-	WHERE OrderRef IN (SELECT OrderRef FROM #WorkDays);
+	WHERE OrderRef IN (SELECT OrderRef FROM #WorkDays)
+	  AND Expedition = 0;
 
 	CREATE INDEX IX_DimOrders_OrderRef ON #DimOrders(OrderRef);
 
@@ -392,6 +393,7 @@ BEGIN
         WHERE COALESCE(do.EndFact, do.EndPlan, do.OrderDate) < @StartDate
           AND COALESCE(do.EndFact, do.EndPlan, do.OrderDate) >= DATEADD(YEAR, -2, @StartDate)
           AND do.TruckReff IN (SELECT DISTINCT TruckRef FROM #TargetTable WHERE OrderRef IS NULL)
+          AND do.Expedition = 0
     )
     SELECT TruckRef, QuotaType
     INTO #SeedTripType

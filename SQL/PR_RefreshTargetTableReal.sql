@@ -95,7 +95,8 @@ BEGIN
     SELECT OrderRef, TruckReff, DriverReff, ManagerReff, RouteReff, ClientReff, QuotaType
     INTO #DimOrders
     FROM pbi.vb_DimOrders
-    WHERE OrderRef IN (SELECT OrderRef FROM #AllOrders UNION SELECT OrderRef FROM #FactOrders);
+    WHERE OrderRef IN (SELECT OrderRef FROM #AllOrders UNION SELECT OrderRef FROM #FactOrders)
+      AND Expedition = 0;
     CREATE CLUSTERED INDEX IX_DimOrders_Ref ON #DimOrders(OrderRef);
 
     IF OBJECT_ID('tempdb..#OrderCost') IS NOT NULL DROP TABLE #OrderCost;
@@ -499,6 +500,7 @@ BEGIN
         WHERE COALESCE(do.EndFact, do.EndPlan, do.OrderDate) < @StartDate
           AND COALESCE(do.EndFact, do.EndPlan, do.OrderDate) >= DATEADD(YEAR, -2, @StartDate)
           AND do.TruckReff IN (SELECT DISTINCT TruckRef FROM #TargetTable WHERE OrderRef IS NULL)
+          AND do.Expedition = 0
     )
     SELECT TruckRef, QuotaType
     INTO #SeedTripType
@@ -589,7 +591,8 @@ BEGIN
     SELECT OrderRef, EndFact, AddDownload
     INTO #OrderEndFact
     FROM pbi.vb_DimOrders
-    WHERE OrderRef IN (SELECT OrderRef FROM #TargetTable WHERE OrderRef IS NOT NULL);
+    WHERE OrderRef IN (SELECT OrderRef FROM #TargetTable WHERE OrderRef IS NOT NULL)
+      AND Expedition = 0;
 
     CREATE CLUSTERED INDEX IX_OEF_Order ON #OrderEndFact(OrderRef);
 

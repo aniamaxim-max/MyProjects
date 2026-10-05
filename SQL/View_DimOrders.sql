@@ -54,6 +54,8 @@ Create view pbi.v_DimOrders AS
     ,IIF(_Document650._Fld17716 > DATEFROMPARTS(4001,1,1),DATEADD(YEAR, -2000,_Document650._Fld17716), null) AS 'StartFact'
     ,IIF(_Document650._Fld27200 > DATEFROMPARTS(4001,1,1), DATEADD(YEAR, -2000,_Document650._Fld27200), null) AS 'EndFact'
     ,CONVERT(VARCHAR(MAX), _Document650._Fld17702RRef, 2) AS 'OperTypeRef'
+    ,CONVERT(VARCHAR(MAX), _Document650._Fld17693RRef, 2) AS 'CurrencyRef'
+    ,CONVERT(VARCHAR(MAX), _Document650._Fld17705RRef, 2) AS 'CarrierContractRef'
     --,CAST(_Document650._Fld17698_RTRef as int) AS TruckTableNum
     ,CONVERT(VARCHAR(MAX), _Document650._Fld17698_RRRef, 2) AS 'TruckReff'
 	,CONVERT(VARCHAR(MAX), _Document650._Fld17710_RRRef, 2) AS 'DriverReff'
@@ -178,8 +180,8 @@ Create view pbi.v_DimOrders AS
 				ELSE 1
 			END	AS BIT) AS 'UsePlan'
 		FROM work.dbo._Enum26798
-    WHERE
-    	NOT(_Enum26798._EnumOrder IN (2, 6))
+    --WHERE
+    --	NOT(_Enum26798._EnumOrder IN (2, 6))
     ) AS Statments ON _Document650._Fld17685RRef = Statments._IDRRef
     LEFT JOIN pbi.vb_DimTrucks dt ON dt.TruckReff = _Document650._Fld17698_RRRef
     LEFT JOIN pbi.vb_PivotRoute pr ON pr.PivotRouteRef = _Document650._Fld17700RRef
@@ -229,6 +231,9 @@ Create view pbi.v_DimOrders AS
     GROUP BY _Document650_IDRRef
     ) PlanWeight ON PlanWeight.[Заказ] = CONVERT(VARCHAR(MAX), _Document650._IDRRef, 2)*/
 	WHERE _Document650._Posted = 0x01
+	  AND _Document650._Fld17685RRef NOT IN (0xA0C10503CE54D6E848C4F4190A4E05BC, 0xB7CC74CE4579F3A7446ED6CC7227830A)
+	  AND _Document650._Fld32970 = 0x00
+	  AND _Document650._Marked = 0x00
 GO
 
 IF EXISTS(SELECT v.name FROM sys.views v
@@ -254,6 +259,8 @@ Create view pbi.vb_DimOrders AS
     ,IIF(_Document650._Fld17716 > DATEFROMPARTS(4001,1,1),DATEADD(YEAR, -2000,_Document650._Fld17716), null) AS 'StartFact'
     ,IIF(_Document650._Fld27200 > DATEFROMPARTS(4001,1,1), DATEADD(YEAR, -2000,_Document650._Fld27200), null) AS 'EndFact'
     ,_Document650._Fld17702RRef AS 'OperTypeRef'
+    ,_Document650._Fld17693RRef AS 'CurrencyRef'
+    ,_Document650._Fld17705RRef AS 'CarrierContractRef'
     ,_Document650._Fld17698_RRRef AS 'TruckReff'
 	,_Document650._Fld17710_RRRef AS 'DriverReff'
     ,_Document650._Fld17700RRef AS 'RouteReff'
@@ -307,7 +314,6 @@ Create view pbi.vb_DimOrders AS
     LEFT JOIN pbi.vb_PivotRoute pr ON pr.PivotRouteRef = _Document650._Fld17700RRef
  	WHERE _Document650._Posted = 0x01 AND
 	   _Document650._Fld17685RRef NOT IN (0xA0C10503CE54D6E848C4F4190A4E05BC, 0xB7CC74CE4579F3A7446ED6CC7227830A)
-	  AND  _Fld17708 = 0x00
 	  AND _Fld32970 = 0x00
 	  AND _Marked = 0x00
 GO
