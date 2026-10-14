@@ -42,7 +42,7 @@ TAG_DIMENSION = re.compile(rb"<dimension ref=\"[^\"]*\"/>")
 DIMENSION_COL = re.compile(rb"<dimension ref=\"[^\"]*:([A-Z]+)\d+\"")
 DEFNAME_ROW = re.compile(rb"(\$[A-Z]{1,3}\$)\d+(</definedName>)")
 DEFNAME_FILTER = re.compile(
-    rb"<definedName\b[^>]*\bname=\"_xlnm\._FilterDatabase\"[^>]*>.*?</definedName>", re.S)
+    rb"<definedName\b[^>]*\bname=\"(?:_xlnm\.)?_FilterDatabase\"[^>]*>.*?</definedName>", re.S)
 AUTOFILTER_ROW = re.compile(rb'(<autoFilter\b[^>]*\bref="[A-Z]+\d+:[A-Z]+)\d+(")')
 OVERRIDE_CALCCHAIN = re.compile(rb"<Override PartName=\"/xl/calcChain\.xml\"[^>]*/>")
 RELS_CALCCHAIN = re.compile(rb"<Relationship [^>]*calcChain\.xml\"[^>]*/>")

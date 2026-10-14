@@ -1,4 +1,4 @@
--- exec work.pbi.RefreshTargetTable '20260101', 'F'
+-- exec work.pbi.RefreshTargetTable '20260701', 'F'
 -- select * from pbi.TargetTableFact where OrderRef IN('80B902B31CC3E40111F1AC4BA7DBB06E')
 -- where tRUCKRef = '8FC8E82DAA1C02A111EBC794BE09EECD' AND TARGETDATE >= '20260601' order by TargetDate desc
 
@@ -32,7 +32,7 @@ BEGIN
     --set @TypeParam = 'F' -- 'P'
 
     declare @StartDate datetime, @Type char(1)
-    set @StartDate = DATEADD(MONTH, -1, CAST(@StartDateParam AS DATE))
+    set @StartDate = DATEADD(MONTH, -10, CAST(@StartDateParam AS DATE))
     set @Type = @TypeParam + ''
 
     IF OBJECT_ID('tempdb..#WorkDays') IS NOT NULL 

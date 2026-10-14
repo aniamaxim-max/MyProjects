@@ -52,7 +52,49 @@ Create view pbi.v_Point AS
     select 
         PR._IDRRef as PointRef,
         PR._Description as PointName,
-        C._Description as CountryName,
+        COALESCE(C._Description, CASE CO._Description
+            WHEN 'UA' THEN N'Україна'
+            WHEN 'PL' THEN N'Польща'
+            WHEN 'DE' THEN N'Німеччина'
+            WHEN 'IT' THEN N'Італія'
+            WHEN 'FR' THEN N'Франція'
+            WHEN 'ES' THEN N'Іспанія'
+            WHEN 'NL' THEN N'Нідерланди'
+            WHEN 'BE' THEN N'Бельгія'
+            WHEN 'CZ' THEN N'Чехія'
+            WHEN 'RU' THEN N'Росія'
+            WHEN 'HU' THEN N'Угорщина'
+            WHEN 'AT' THEN N'Австрія'
+            WHEN 'RO' THEN N'Румунія'
+            WHEN 'EU' THEN N'Європа'
+            WHEN 'LT' THEN N'Литва'
+            WHEN 'BG' THEN N'Болгарія'
+            WHEN 'SK' THEN N'Словаччина'
+            WHEN 'BY' THEN N'Білорусія'
+            WHEN 'GR' THEN N'Греція'
+            WHEN 'LV' THEN N'Латвія'
+            WHEN 'MD' THEN N'Молдова'
+            WHEN 'TR' THEN N'Туреччина'
+            WHEN 'EE' THEN N'Естонія'
+            WHEN 'HR' THEN N'Хорватія'
+            WHEN 'DK' THEN N'Данія'
+            WHEN 'SE' THEN N'Швеція'
+            WHEN 'SI' THEN N'Словенія'
+            WHEN 'LU' THEN N'Люксембург'
+            WHEN 'CH' THEN N'Швейцарія'
+            WHEN 'NMK' THEN N'Північна Македонія'
+            WHEN 'FI' THEN N'Фінляндія'
+            WHEN 'IRL' THEN N'Ірландія'
+            WHEN 'GE' THEN N'Грузія'
+            WHEN 'KZ' THEN N'Казахстан'
+            WHEN 'GB' THEN N'Велика Британія'
+            WHEN 'NO' THEN N'Норвегія'
+            WHEN 'PT' THEN N'Португалія'
+            WHEN 'AL' THEN N'Албанія'
+            WHEN 'SRB' THEN N'Сербія'
+            WHEN 'CY' THEN N'Кіпр'
+            ELSE CO._Description
+        END) as CountryName,
         CONVERT(VARCHAR(36), PR._Fld3853RRef, 2) as TypeRef,
         CASE 
             WHEN CONVERT(VARCHAR(36), PR._Fld3853RRef, 2) = 'B6F8FF047F4959FB48398FBFA5E4A191' then 'Город'
@@ -66,6 +108,7 @@ Create view pbi.v_Point AS
         end as PointType
     from _Reference299 PR
     left join _Reference299 C ON C._IDRRef = PR._ParentIDRRef
+    left join _Reference111 CO ON CO._IDRRef = PR._Fld3854RRef
     where CAST(PR._Marked AS BIT) = 0
     and CAST(PR._Folder AS BIT) = 1
 GO
@@ -118,7 +161,49 @@ Create view pbi.vb_Point AS
     select 
         PR._IDRRef as PointRef,
         PR._Description as PointName,
-        C._Description as CountryName,
+        COALESCE(C._Description, CASE CO._Description
+            WHEN 'UA' THEN N'Україна'
+            WHEN 'PL' THEN N'Польща'
+            WHEN 'DE' THEN N'Німеччина'
+            WHEN 'IT' THEN N'Італія'
+            WHEN 'FR' THEN N'Франція'
+            WHEN 'ES' THEN N'Іспанія'
+            WHEN 'NL' THEN N'Нідерланди'
+            WHEN 'BE' THEN N'Бельгія'
+            WHEN 'CZ' THEN N'Чехія'
+            WHEN 'RU' THEN N'Росія'
+            WHEN 'HU' THEN N'Угорщина'
+            WHEN 'AT' THEN N'Австрія'
+            WHEN 'RO' THEN N'Румунія'
+            WHEN 'EU' THEN N'Європа'
+            WHEN 'LT' THEN N'Литва'
+            WHEN 'BG' THEN N'Болгарія'
+            WHEN 'SK' THEN N'Словаччина'
+            WHEN 'BY' THEN N'Білорусія'
+            WHEN 'GR' THEN N'Греція'
+            WHEN 'LV' THEN N'Латвія'
+            WHEN 'MD' THEN N'Молдова'
+            WHEN 'TR' THEN N'Туреччина'
+            WHEN 'EE' THEN N'Естонія'
+            WHEN 'HR' THEN N'Хорватія'
+            WHEN 'DK' THEN N'Данія'
+            WHEN 'SE' THEN N'Швеція'
+            WHEN 'SI' THEN N'Словенія'
+            WHEN 'LU' THEN N'Люксембург'
+            WHEN 'CH' THEN N'Швейцарія'
+            WHEN 'NMK' THEN N'Північна Македонія'
+            WHEN 'FI' THEN N'Фінляндія'
+            WHEN 'IRL' THEN N'Ірландія'
+            WHEN 'GE' THEN N'Грузія'
+            WHEN 'KZ' THEN N'Казахстан'
+            WHEN 'GB' THEN N'Велика Британія'
+            WHEN 'NO' THEN N'Норвегія'
+            WHEN 'PT' THEN N'Португалія'
+            WHEN 'AL' THEN N'Албанія'
+            WHEN 'SRB' THEN N'Сербія'
+            WHEN 'CY' THEN N'Кіпр'
+            ELSE CO._Description
+        END) as CountryName,
         PR._Fld3853RRef as TypeRef,
         CASE 
             WHEN PR._Fld3853RRef = 0xB6F8FF047F4959FB48398FBFA5E4A191 then 'Город'
@@ -132,5 +217,6 @@ Create view pbi.vb_Point AS
         end as PointType
     from _Reference299 PR
     left join _Reference299 C ON C._IDRRef = PR._ParentIDRRef
+    left join _Reference111 CO ON CO._IDRRef = PR._Fld3854RRef
     where PR._Marked = 0x00
 	 and PR._Folder = 0x01
