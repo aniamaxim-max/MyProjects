@@ -23,6 +23,8 @@ CREATE TABLE [pbi].[TargetTableReal] (
     RoadTaxExpPerDay        numeric(10,4) not null default 0.0,
     RoadTaxExpPerDaySource  varchar(1) null,
     DriverSalaryExpPerDay   numeric(10,4) not null default 0.0,
+    DriverSalaryNoTaxExpPerDay numeric(10,4) not null default 0.0,
+    DriverTaxExpPerDay      numeric(10,4) not null default 0.0,
     DriverSalaryExpPerDaySource varchar(1) null,
     WashingExpPerDay        numeric(10,4) not null default 0.0,
     WashingExpPerDaySource  varchar(1) null,

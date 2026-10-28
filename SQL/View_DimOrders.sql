@@ -48,7 +48,7 @@ Create view pbi.v_DimOrders AS
     ,Statments.Statment AS 'OrderStatment'
     --,Statments.UsePlan
     ,CONVERT(VARCHAR(MAX), _Document650._Fld17686RRef, 2) AS 'ManagerReff'
-    --,CONVERT(VARCHAR(MAX), _Document650._Fld17720RRef, 2) AS 'DispetcherReff'
+    ,CONVERT(VARCHAR(MAX), _Document650._Fld17720RRef, 2) AS 'DispetcherReff'
     ,IIF(_Document650._Fld17682 >= DATEFROMPARTS(4001,1,1), DATEADD(YEAR, -2000,_Document650._Fld17682), null) AS 'StartPlan'
     ,IIF(_Document650._Fld17683 >= DATEFROMPARTS(4001,1,1), DATEADD(YEAR, -2000,_Document650._Fld17683), null) AS 'EndPlan'
     ,IIF(_Document650._Fld17716 > DATEFROMPARTS(4001,1,1),DATEADD(YEAR, -2000,_Document650._Fld17716), null) AS 'StartFact'
@@ -254,6 +254,7 @@ Create view pbi.vb_DimOrders AS
     ,CAST(_Document650._Posted AS bit) AS 'Posted'
     ,_Document650._Fld17681_RRRef AS 'ClientReff'
     ,_Document650._Fld17686RRef AS 'ManagerReff'
+    ,_Document650._Fld17720RRef AS 'DispetcherReff'
     ,IIF(_Document650._Fld17682 >= DATEFROMPARTS(4001,1,1), DATEADD(YEAR, -2000,_Document650._Fld17682), null) AS 'StartPlan'
     ,IIF(_Document650._Fld17683 >= DATEFROMPARTS(4001,1,1), DATEADD(YEAR, -2000,_Document650._Fld17683), null) AS 'EndPlan'
     ,IIF(_Document650._Fld17716 > DATEFROMPARTS(4001,1,1),DATEADD(YEAR, -2000,_Document650._Fld17716), null) AS 'StartFact'

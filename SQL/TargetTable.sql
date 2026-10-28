@@ -17,7 +17,7 @@ BEGIN
         DayPart                         numeric(10,2) not null default 0.0,
         IncomePerDay                    numeric(10,4) not null default 0.0,
         ExpensesPerDayWithoutSalary     numeric(10,4) not null default 0.0,
-        DriverSalaryPerDay              numeric(10,2) not null default 0.0,
+        DriverSalaryPerDay              numeric(10,4) not null default 0.0,
         MarginPerDay                    numeric(10,4) not null default 0.0,
         BreakEvenPointPerDay            numeric(10,4) not null default 0.0,
         QuotaPerDay                     numeric(10,4) not null default 0.0
@@ -42,7 +42,7 @@ BEGIN
         DayPart                         numeric(10,2) not null default 0.0,
         IncomePerDay                    numeric(10,4) not null default 0.0,
         ExpensesPerDayWithoutSalary     numeric(10,4) not null default 0.0,
-        DriverSalaryPerDay              numeric(10,2) not null default 0.0,
+        DriverSalaryPerDay              numeric(10,4) not null default 0.0,
         MarginPerDay                    numeric(10,4) not null default 0.0,
         BreakEvenPointPerDay            numeric(10,4) not null default 0.0,
         QuotaPerDay                     numeric(10,4) not null default 0.0
@@ -105,3 +105,45 @@ IF NOT EXISTS (SELECT *
     ALTER TABLE [pbi].[TargetTableFact] ADD
         AddDownload      bit
 GO 
+
+ALTER TABLE [pbi].[TargetTablePlan] ALTER COLUMN DriverSalaryPerDay numeric(10,4) NOT NULL
+GO
+
+IF NOT EXISTS (SELECT * 
+                FROM sys.columns c
+                    INNER JOIN sys.objects o ON c.object_Id = o.object_Id
+					INNER JOIN sys.schemas s ON o.schema_id = s.schema_id 
+                WHERE c.name = 'DriverSalaryNoTaxPerDay' and o.name = 'TargetTablePlan' and s.name = 'pbi')
+    ALTER TABLE [pbi].[TargetTablePlan] ADD
+        DriverSalaryNoTaxPerDay numeric(10,4) not null default 0.0
+GO
+
+IF NOT EXISTS (SELECT * 
+                FROM sys.columns c
+                    INNER JOIN sys.objects o ON c.object_Id = o.object_Id
+					INNER JOIN sys.schemas s ON o.schema_id = s.schema_id 
+                WHERE c.name = 'DriverTaxPerDay' and o.name = 'TargetTablePlan' and s.name = 'pbi')
+    ALTER TABLE [pbi].[TargetTablePlan] ADD
+        DriverTaxPerDay  numeric(10,4) not null default 0.0
+GO
+
+ALTER TABLE [pbi].[TargetTableFact] ALTER COLUMN DriverSalaryPerDay numeric(10,4) NOT NULL
+GO
+
+IF NOT EXISTS (SELECT * 
+                FROM sys.columns c
+                    INNER JOIN sys.objects o ON c.object_Id = o.object_Id
+					INNER JOIN sys.schemas s ON o.schema_id = s.schema_id 
+                WHERE c.name = 'DriverSalaryNoTaxPerDay' and o.name = 'TargetTableFact' and s.name = 'pbi')
+    ALTER TABLE [pbi].[TargetTableFact] ADD
+        DriverSalaryNoTaxPerDay numeric(10,4) not null default 0.0
+GO
+
+IF NOT EXISTS (SELECT * 
+                FROM sys.columns c
+                    INNER JOIN sys.objects o ON c.object_Id = o.object_Id
+					INNER JOIN sys.schemas s ON o.schema_id = s.schema_id 
+                WHERE c.name = 'DriverTaxPerDay' and o.name = 'TargetTableFact' and s.name = 'pbi')
+    ALTER TABLE [pbi].[TargetTableFact] ADD
+        DriverTaxPerDay  numeric(10,4) not null default 0.0
+GO

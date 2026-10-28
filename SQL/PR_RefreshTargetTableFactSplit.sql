@@ -35,11 +35,14 @@ BEGIN
         GROUP BY CONVERT(VARCHAR(MAX), OrderRef, 2)
     ) dp ON dp.OrderRef = CONVERT(VARCHAR(MAX), pe.OrderRef, 2)
     WHERE pe.Dates >= @StartDateParam
-      AND (de.ExpensesType IS NULL OR de.ExpensesType <> 'DriverSalary')
+      AND (de.ExpensesType IS NULL OR de.ExpensesType NOT IN ('DriverSalary', 'DriverTax'))
       AND pe.ExpensesItemRef NOT IN (
             0x924F02B31CC3E40111EF691DFA5EBEC0,
             0x924F02B31CC3E40111EF953A22E72470,
-            0x8DE59E02FDC0F6A111EB59912A99E1F0
+            0x8DE59E02FDC0F6A111EB59912A99E1F0,
+            0x86F5B68AC35E4EB511E679CAA0EBCC82,
+            0x86F5B68AC35E4EB511E679CAA0EBCCA0,
+            0x86F5B68AC35E4EB511E679CAA0EBCCC0
           )
     GROUP BY pe.OrderRef, dp.DayPartSum;
 

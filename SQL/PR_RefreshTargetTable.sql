@@ -1,5 +1,5 @@
 -- exec work.pbi.RefreshTargetTable '20260701', 'F'
--- select * from pbi.TargetTableFact where OrderRef IN('80B902B31CC3E40111F1AC4BA7DBB06E')
+-- select * from pbi.TargetTableFact where OrderRef IN('80B902B31CC3E40111F197B21D9AFC48')
 -- where tRUCKRef = '8FC8E82DAA1C02A111EBC794BE09EECD' AND TARGETDATE >= '20260601' order by TargetDate desc
 
 /* !!!!!!!!!הכÿ הזמבא!!!!!!!!!
@@ -88,13 +88,15 @@ BEGIN
 	CREATE TABLE #DriverSalary (
 		Driver   binary(16),
 		[Period] datetime,
+		DriverSalaryPerDayNoTaxEUR decimal(38,6),
+		DriverTaxEUR decimal(38,6),
 		DriverSalaryPerDayEUR decimal(38,6)
 	)
 	
 	CREATE CLUSTERED INDEX IX_#DriverSalary_Driver_Period ON #DriverSalary (Driver, [Period] DESC);
 
 	insert into #DriverSalary
-	SELECT Driver, [Period], DriverSalaryPerDayEUR		
+	SELECT Driver, [Period], DriverSalaryPerDayNoTaxEUR, DriverTaxEUR, DriverSalaryPerDayEUR		
 	FROM pbi.vb_DriverSalaryFull src
 	WHERE src.[Period] >= DATEADD(Month, -1, @StartDate)-- and Driver =0x80B702B31CC3E40111F0CAABB9D82B64
 
@@ -200,7 +202,9 @@ BEGIN
 	    DayPart           numeric(10,2) not null default 0.0,
         IncomePerDay      numeric(10,4) not null default 0.0,
 	    ExpensesPerDayWithoutSalary numeric(10,4) not null default 0.0,
-        DriverSalaryPerDay numeric(10,2) not null default 0.0,
+        DriverSalaryPerDay numeric(10,4) not null default 0.0,
+        DriverSalaryNoTaxPerDay numeric(10,4) not null default 0.0,
+        DriverTaxPerDay   numeric(10,4) not null default 0.0,
         MarginPerDay      numeric(10,4) not null default 0.0,
 	    BreakEvenPointPerDay numeric(10,4) not null default 0.0,
 	    QuotaPerDay       numeric(10,4) not null default 0.0,
@@ -357,19 +361,28 @@ BEGIN
 	where #TargetTable.TruckRef = c.TruckRef and #TargetTable.TargetDate = c.TargetDate and #TargetTable.DriverRef is null
 
 	UPDATE e
-	SET e.DriverSalaryPerDay = 
+	SET e.DriverSalaryNoTaxPerDay = 
 		CASE 
 			WHEN e.IsPaidStatement = 0 THEN 0.0
-			ELSE isnull(ds.DriverSalaryPerDayEUR, 0) * e.DayPart
-		END 
+			ELSE isnull(ds.DriverSalaryPerDayNoTaxEUR, 0) * e.DayPart
+		END,
+		e.DriverTaxPerDay = 
+		CASE 
+			WHEN e.IsPaidStatement = 0 THEN 0.0
+			ELSE isnull(ds.DriverTaxEUR, 0) * e.DayPart
+		END
 	FROM #TargetTable e
 	OUTER APPLY (
-		SELECT TOP 1 src.DriverSalaryPerDayEUR
+		SELECT TOP 1 src.DriverSalaryPerDayNoTaxEUR, src.DriverTaxEUR
 		FROM #DriverSalary src
 		WHERE src.Driver = e.DriverRef
 		  AND src.[Period] <= e.TargetDate
 		ORDER BY src.[Period] DESC
 	) ds
+
+    UPDATE e
+    SET e.DriverSalaryPerDay = e.DriverSalaryNoTaxPerDay + e.DriverTaxPerDay
+    FROM #TargetTable e
 
     UPDATE e
     SET e.MarginPerDay = e.IncomePerDay - e.ExpensesPerDayWithoutSalary - e.DriverSalaryPerDay
@@ -500,7 +513,9 @@ BEGIN
 			QuotaPerDay,
 			CONVERT(VARCHAR(MAX), MainManagerRef, 2) AS MainManagerRef,
 			CONVERT(VARCHAR(MAX), CurManagerRef, 2) AS CurManagerRef,
-			AddDownload
+			AddDownload,
+			DriverSalaryNoTaxPerDay,
+			DriverTaxPerDay
 		FROM #TargetTable
         WHERE TargetDate >= @StartDateParam
     END
@@ -526,7 +541,9 @@ BEGIN
 			QuotaPerDay,
 			CONVERT(VARCHAR(MAX), MainManagerRef, 2) AS MainManagerRef,
 			CONVERT(VARCHAR(MAX), CurManagerRef, 2) AS CurManagerRef,
-			AddDownload
+			AddDownload,
+			DriverSalaryNoTaxPerDay,
+			DriverTaxPerDay
 		FROM #TargetTable
         WHERE TargetDate >= @StartDateParam
     END

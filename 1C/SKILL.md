@@ -1501,7 +1501,7 @@ SELECT TABLE_NAME, TABLE_TYPE FROM INFORMATION_SCHEMA.TABLES
 WHERE TABLE_SCHEMA = 'pbi' ORDER BY TABLE_NAME;
 ```
 
-### `pbi.TargetTableFact` / `pbi.TargetTablePlan` — структура (16 колонок, ідентична)
+### `pbi.TargetTableFact` / `pbi.TargetTablePlan` — структура (18 колонок, ідентична)
 
 | Колонка | Тип | Опис |
 |---------|-----|------|
@@ -1513,7 +1513,9 @@ WHERE TABLE_SCHEMA = 'pbi' ORDER BY TABLE_NAME;
 | `DayPart` | numeric | Частка дня (`0.50` = пів дня) — рейс розбито по днях |
 | `IncomePerDay` | numeric | Дохід / день (EUR) |
 | `ExpensesPerDayWithoutSalary` | numeric | Витрати / день БЕЗ ЗП водія (EUR) |
-| `DriverSalaryPerDay` | numeric | ЗП водія / день (EUR) |
+| `DriverSalaryPerDay` | numeric | ЗП водія + податки / день (EUR) = `DriverSalaryNoTaxPerDay + DriverTaxPerDay` |
+| `DriverSalaryNoTaxPerDay` | numeric | ЗП водія без податків / день (EUR) |
+| `DriverTaxPerDay` | numeric | Податки водія / день (EUR) |
 | **`MarginPerDay`** | numeric | **Маржа / день (EUR без ПДВ)** ← головна метрика |
 | `BreakEvenPointPerDay` | numeric | Точка беззбитковості / день |
 | `QuotaPerDay` | numeric | Квота / день |
@@ -1521,9 +1523,14 @@ WHERE TABLE_SCHEMA = 'pbi' ORDER BY TABLE_NAME;
 
 **Формула (перевірено арифметично):**
 ```
-MarginPerDay = IncomePerDay − ExpensesPerDayWithoutSalary − DriverSalaryPerDay
+MarginPerDay = IncomePerDay − ExpensesPerDayWithoutSalary − (DriverSalaryNoTaxPerDay + DriverTaxPerDay)
 ```
-(«WithoutSalary» стосується лише колонки витрат — у `MarginPerDay` ЗП вже віднята.)
+(«WithoutSalary» стосується лише колонки витрат — у `MarginPerDay` ЗП і податки вже відняті. `DriverSalaryPerDay` — підсумкова колонка для сумісності, дорівнює сумі компонентів.)
+
+**Податки водія в `pbi.TargetTableReal`** беруться з фактичних витрат 1С окремим типом `DriverTax` у `pbi.vb_DimExpenses` (6 статей), без фільтра `DriverWork`.
+
+> Після розгортання розділення ЗП/податків історичні рядки треба перерахувати з `2024-01-01`:
+> `RefreshTargetTable '20240101', 'F'`, потім `'P'`, потім `RefreshTargetTableReal '20240101'`.
 
 **DAX-відповідність** (від аналітика):
 - `'TargetTable'[MarginePerDayPlanKey-VAT]` = `pbi.TargetTablePlan.MarginPerDay` (план)

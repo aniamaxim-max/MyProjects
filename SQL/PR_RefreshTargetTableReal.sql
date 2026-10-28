@@ -12,7 +12,7 @@ BEGIN
     SET NOCOUNT ON;
 
     declare @StartDate datetime
-    set @StartDate = DATEADD(MONTH, -1, CAST(@StartDateParam AS DATE))
+    set @StartDate = DATEADD(MONTH, -10, CAST(@StartDateParam AS DATE))
 
     -- Обновляем FactSplit (сама по себе нигде не вызывается)
     EXEC work.pbi.RefreshTargetTableFactSplit @StartDateParam
@@ -121,7 +121,7 @@ BEGIN
     CREATE INDEX IX_TMH_Truck ON #TruckManagerHistory(TruckRef);
 
     IF OBJECT_ID('tempdb..#DriverSalary') IS NOT NULL DROP TABLE #DriverSalary;
-    SELECT Driver, [Period], DriverSalaryPerDayEUR
+    SELECT Driver, [Period], DriverSalaryPerDayNoTaxEUR, DriverTaxEUR, DriverSalaryPerDayEUR
     INTO #DriverSalary
     FROM pbi.vb_DriverSalaryFull
     WHERE [Period] >= DATEADD(MONTH, -1, @StartDate);
@@ -166,12 +166,14 @@ BEGIN
         f.DayPart,
         f.IncomePerDay,
         f.DriverSalaryPerDay,
+        f.DriverSalaryNoTaxPerDay,
+        f.DriverTaxPerDay,
         ROW_NUMBER() OVER(PARTITION BY CONVERT(binary(16), f.TruckRef, 2), f.TargetDate ORDER BY f.DayPart DESC, f.OrderRef) AS RN
     INTO #FactRows
     FROM pbi.TargetTableFact f
     WHERE f.TargetDate >= @StartDate;
 
-    CREATE INDEX IX_FR_Truck_Date ON #FactRows(TruckRef, TargetDate) INCLUDE(OrderRef, DriverRef, StatementRef, DayPart, IncomePerDay, DriverSalaryPerDay, RN);
+    CREATE INDEX IX_FR_Truck_Date ON #FactRows(TruckRef, TargetDate) INCLUDE(OrderRef, DriverRef, StatementRef, DayPart, IncomePerDay, DriverSalaryPerDay, DriverSalaryNoTaxPerDay, DriverTaxPerDay, RN);
     CREATE INDEX IX_FR_Order ON #FactRows(OrderRef, TargetDate);
 
     IF OBJECT_ID('tempdb..#FactSplit') IS NOT NULL DROP TABLE #FactSplit;
@@ -211,6 +213,8 @@ BEGIN
         RealAdBlueExpPerDay   NUMERIC(10,4) NOT NULL DEFAULT 0.0,
         RealRoadTaxExpPerDay  NUMERIC(10,4) NOT NULL DEFAULT 0.0,
         RealDriverSalaryExpPerDay NUMERIC(10,4) NOT NULL DEFAULT 0.0,
+        RealDriverSalaryNoTaxExpPerDay NUMERIC(10,4) NOT NULL DEFAULT 0.0,
+        RealDriverTaxExpPerDay NUMERIC(10,4) NOT NULL DEFAULT 0.0,
         RealWashingExpPerDay  NUMERIC(10,4) NOT NULL DEFAULT 0.0,
         RealCustomsDutyExpPerDay NUMERIC(10,4) NOT NULL DEFAULT 0.0,
         RealParkingExpPerDay  NUMERIC(10,4) NOT NULL DEFAULT 0.0,
@@ -225,6 +229,8 @@ BEGIN
         FactFineExpPerDay     NUMERIC(10,4) NOT NULL DEFAULT 0.0,
         FactOtherExpPerDay    NUMERIC(10,4) NOT NULL DEFAULT 0.0,
         FactDriverSalaryPerDay NUMERIC(10,4) NOT NULL DEFAULT 0.0,
+        FactDriverSalaryNoTaxPerDay NUMERIC(10,4) NOT NULL DEFAULT 0.0,
+        FactDriverTaxPerDay NUMERIC(10,4) NOT NULL DEFAULT 0.0,
         FuelExpPerDay       NUMERIC(10,4) NOT NULL DEFAULT 0.0,
         FuelExpPerDaySource VARCHAR(1) NULL,
         AdBlueExpPerDay     NUMERIC(10,4) NOT NULL DEFAULT 0.0,
@@ -232,6 +238,8 @@ BEGIN
         RoadTaxExpPerDay    NUMERIC(10,4) NOT NULL DEFAULT 0.0,
         RoadTaxExpPerDaySource VARCHAR(1) NULL,
         DriverSalaryExpPerDay NUMERIC(10,4) NOT NULL DEFAULT 0.0,
+        DriverSalaryNoTaxExpPerDay NUMERIC(10,4) NOT NULL DEFAULT 0.0,
+        DriverTaxExpPerDay NUMERIC(10,4) NOT NULL DEFAULT 0.0,
         DriverSalaryExpPerDaySource VARCHAR(1) NULL,
         WashingExpPerDay    NUMERIC(10,4) NOT NULL DEFAULT 0.0,
         WashingExpPerDaySource VARCHAR(1) NULL,
@@ -364,6 +372,7 @@ BEGIN
         SUM(CASE WHEN de.ExpensesType = 'AdBlue' AND (e.ExpensesRef <> 0x86F5B68AC35E4EB511E679CAA0EBCC81 OR e.DriverWork > 0) THEN e.Sum - ISNULL(e.NDS, 0) ELSE 0 END) AS AdBlueExpenses,
         SUM(CASE WHEN de.ExpensesType = 'RoadTax' AND (e.ExpensesRef <> 0x86F5B68AC35E4EB511E679CAA0EBCC81 OR e.DriverWork > 0) THEN e.Sum - ISNULL(e.NDS, 0) ELSE 0 END) AS RoadTaxExpenses,
         SUM(CASE WHEN de.ExpensesType = 'DriverSalary' AND e.DriverWork > 0 THEN e.Sum - ISNULL(e.NDS, 0) ELSE 0 END) AS DriverSalaryExpenses,
+        SUM(CASE WHEN de.ExpensesType = 'DriverTax' THEN e.Sum - ISNULL(e.NDS, 0) ELSE 0 END) AS DriverTaxExpenses,
         SUM(CASE WHEN de.ExpensesType = 'Washing' AND (e.ExpensesRef <> 0x86F5B68AC35E4EB511E679CAA0EBCC81 OR e.DriverWork > 0) THEN e.Sum - ISNULL(e.NDS, 0) ELSE 0 END) AS WashingExpenses,
         SUM(CASE WHEN de.ExpensesType = 'CustomsDuty' AND (e.ExpensesRef <> 0x86F5B68AC35E4EB511E679CAA0EBCC81 OR e.DriverWork > 0) THEN e.Sum - ISNULL(e.NDS, 0) ELSE 0 END) AS CustomsDutyExpenses,
         SUM(CASE WHEN de.ExpensesType = 'Parking' AND (e.ExpensesRef <> 0x86F5B68AC35E4EB511E679CAA0EBCC81 OR e.DriverWork > 0) THEN e.Sum - ISNULL(e.NDS, 0) ELSE 0 END) AS ParkingExpenses,
@@ -387,7 +396,8 @@ BEGIN
         tt.RealFuelExpPerDay = CASE WHEN tt.DurationStatement = 0 THEN 0.0 WHEN ow.TotalDayParts > 0 THEN ISNULL(eb.FuelExpenses, 0) * tt.DayPart / ow.TotalDayParts ELSE 0.0 END,
         tt.RealAdBlueExpPerDay = CASE WHEN tt.DurationStatement = 0 THEN 0.0 WHEN ow.TotalDayParts > 0 THEN ISNULL(eb.AdBlueExpenses, 0) * tt.DayPart / ow.TotalDayParts ELSE 0.0 END,
         tt.RealRoadTaxExpPerDay = CASE WHEN tt.DurationStatement = 0 THEN 0.0 WHEN ow.TotalDayParts > 0 THEN ISNULL(eb.RoadTaxExpenses, 0) * tt.DayPart / ow.TotalDayParts ELSE 0.0 END,
-        tt.RealDriverSalaryExpPerDay = CASE WHEN tt.DurationStatement = 0 THEN 0.0 WHEN ow.TotalDayParts > 0 THEN ISNULL(eb.DriverSalaryExpenses, 0) * tt.DayPart / ow.TotalDayParts ELSE 0.0 END,
+        tt.RealDriverSalaryNoTaxExpPerDay = CASE WHEN tt.DurationStatement = 0 THEN 0.0 WHEN ow.TotalDayParts > 0 THEN ISNULL(eb.DriverSalaryExpenses, 0) * tt.DayPart / ow.TotalDayParts ELSE 0.0 END,
+        tt.RealDriverTaxExpPerDay = CASE WHEN tt.DurationStatement = 0 THEN 0.0 WHEN ow.TotalDayParts > 0 THEN ISNULL(eb.DriverTaxExpenses, 0) * tt.DayPart / ow.TotalDayParts ELSE 0.0 END,
         tt.RealWashingExpPerDay = CASE WHEN tt.DurationStatement = 0 THEN 0.0 WHEN ow.TotalDayParts > 0 THEN ISNULL(eb.WashingExpenses, 0) * tt.DayPart / ow.TotalDayParts ELSE 0.0 END,
         tt.RealCustomsDutyExpPerDay = CASE WHEN tt.DurationStatement = 0 THEN 0.0 WHEN ow.TotalDayParts > 0 THEN ISNULL(eb.CustomsDutyExpenses, 0) * tt.DayPart / ow.TotalDayParts ELSE 0.0 END,
         tt.RealParkingExpPerDay = CASE WHEN tt.DurationStatement = 0 THEN 0.0 WHEN ow.TotalDayParts > 0 THEN ISNULL(eb.ParkingExpenses, 0) * tt.DayPart / ow.TotalDayParts ELSE 0.0 END,
@@ -422,26 +432,34 @@ BEGIN
     -- 17. RealDriverSalaryExpPerDay для истинно пустых дней
     -- =============================================
     UPDATE tt
-    SET tt.RealDriverSalaryExpPerDay = 
-        CASE WHEN tt.IsPaidStatement = 0 THEN 0.0 ELSE ISNULL(ds.DriverSalaryPerDayEUR, 0) * tt.DayPart END
+    SET tt.RealDriverSalaryNoTaxExpPerDay = 
+            CASE WHEN tt.IsPaidStatement = 0 THEN 0.0 ELSE ISNULL(ds.DriverSalaryPerDayNoTaxEUR, 0) * tt.DayPart END,
+        tt.RealDriverTaxExpPerDay = 
+            CASE WHEN tt.IsPaidStatement = 0 THEN 0.0 ELSE ISNULL(ds.DriverTaxEUR, 0) * tt.DayPart END
     FROM #TargetTable tt
     OUTER APPLY (
-        SELECT TOP 1 src.DriverSalaryPerDayEUR
+        SELECT TOP 1 src.DriverSalaryPerDayNoTaxEUR, src.DriverTaxEUR
         FROM #DriverSalary src
         WHERE src.Driver = tt.DriverRef AND src.[Period] <= tt.TargetDate
         ORDER BY src.[Period] DESC
     ) ds
     WHERE tt.OrderRef IS NULL;
 
+    UPDATE tt
+    SET tt.RealDriverSalaryExpPerDay = tt.RealDriverSalaryNoTaxExpPerDay + tt.RealDriverTaxExpPerDay
+    FROM #TargetTable tt;
+
     -- =============================================
     -- 18. FactDriverSalaryPerDay (для ВСЕХ строк)
     --     По заказу, если он есть; иначе по машине+дате
     -- =============================================
     UPDATE tt
-    SET tt.FactDriverSalaryPerDay = ISNULL(fr.DriverSalaryPerDay, 0)
+    SET tt.FactDriverSalaryNoTaxPerDay = ISNULL(fr.DriverSalaryNoTaxPerDay, 0),
+        tt.FactDriverTaxPerDay = ISNULL(fr.DriverTaxPerDay, 0),
+        tt.FactDriverSalaryPerDay = ISNULL(fr.DriverSalaryNoTaxPerDay, 0) + ISNULL(fr.DriverTaxPerDay, 0)
     FROM #TargetTable tt
     OUTER APPLY (
-        SELECT TOP 1 f.DriverSalaryPerDay
+        SELECT TOP 1 f.DriverSalaryNoTaxPerDay, f.DriverTaxPerDay
         FROM #FactRows f
         WHERE f.TargetDate = tt.TargetDate
           AND (f.OrderRef = tt.OrderRef OR (tt.OrderRef IS NULL AND f.TruckRef = tt.TruckRef))
@@ -617,6 +635,8 @@ BEGIN
             WHEN tt.RealAdBlueExpPerDay > 0 THEN 'R'
             ELSE 'F' END,
         tt.DriverSalaryExpPerDay = CASE WHEN tt.RealDriverSalaryExpPerDay > 0 THEN tt.RealDriverSalaryExpPerDay ELSE tt.FactDriverSalaryPerDay END,
+        tt.DriverSalaryNoTaxExpPerDay = CASE WHEN tt.RealDriverSalaryExpPerDay > 0 THEN tt.RealDriverSalaryNoTaxExpPerDay ELSE tt.FactDriverSalaryNoTaxPerDay END,
+        tt.DriverTaxExpPerDay = CASE WHEN tt.RealDriverSalaryExpPerDay > 0 THEN tt.RealDriverTaxExpPerDay ELSE tt.FactDriverTaxPerDay END,
         tt.DriverSalaryExpPerDaySource = CASE WHEN tt.RealDriverSalaryExpPerDay > 0 THEN 'R' ELSE 'F' END
     FROM #TargetTable tt
     WHERE tt.OrderRef IS NOT NULL;
@@ -732,7 +752,7 @@ BEGIN
         FuelExpPerDay, FuelExpPerDaySource,
         AdBlueExpPerDay, AdBlueExpPerDaySource,
         RoadTaxExpPerDay, RoadTaxExpPerDaySource,
-        DriverSalaryExpPerDay, DriverSalaryExpPerDaySource,
+        DriverSalaryExpPerDay, DriverSalaryNoTaxExpPerDay, DriverTaxExpPerDay, DriverSalaryExpPerDaySource,
         WashingExpPerDay, WashingExpPerDaySource,
         CustomsDutyExpPerDay, CustomsDutyExpPerDaySource,
         ParkingExpPerDay, ParkingExpPerDaySource,
