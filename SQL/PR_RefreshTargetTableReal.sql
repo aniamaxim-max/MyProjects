@@ -1,4 +1,4 @@
-﻿-- exec work.pbi.RefreshTargetTableReal '20260801'
+﻿-- exec work.pbi.RefreshTargetTableReal '20240101'
 -- select * from pbi.TargetTableReal where TargetDate >= '20260601' and OrderRef = '80B902B31CC3E40111F1A2CC49DD0C4A' order by TruckRef, TargetDate 
 
 IF EXISTS (SELECT * FROM sys.procedures WHERE name = 'RefreshTargetTableReal' AND SCHEMA_NAME(schema_id) = 'pbi')

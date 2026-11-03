@@ -13,6 +13,13 @@
 --   * остальные HH: короткие (StartPlan=EndPlan, в один день) — один кругорейс
 --     на день завершения (EndFact); длинные (>1 дня) — каждый отдельный кругорейс;
 --   * неизвестный маршрут / "Маршрут в розробці" -> без TripNo;
+--   * TripType (тип кругорейса):
+--       - 'Контейнери' — тип прицепа 'Платформа' или
+--         'Спеціалізований напівпричіп контейнеровоз' (найвищий приоритет);
+--       - 'Україна' — усі непорожні країни замовлень рейсу = 'UA';
+--       - 'Європа' — усі інші випадки;
+--       - NULL — якщо в рейсі немає жодної заповненої країни;
+--     домашня країна прицепа не враховується;
 --   * TripNo глобальный 1..N по дате завершения рейса.
 -- =============================================================================
 
@@ -41,6 +48,7 @@ BEGIN
         SELECT
             i._Fld23489RRef AS TruckRef,
             i._Fld23490RRef AS CompanyRef,
+            i._Fld23491RRef AS VehicleTypeRef,
             ROW_NUMBER() OVER (PARTITION BY i._Fld23489RRef ORDER BY i._Period DESC) AS rn
         FROM work.dbo._InfoRg23488 i
     ),
@@ -64,6 +72,7 @@ BEGIN
                 WHEN c.CompanyRef = @Stellar THEN 'UA'
                 WHEN c.CompanyRef = @Trimex  THEN 'PL'
             END AS HomeCountry,
+            RTRIM(vt._Description) AS TrailerType,
 
             CONVERT(varchar(32), d._Fld17681_RRRef, 2) AS ClientRef,
             cl._Description AS ClientName,
@@ -87,6 +96,8 @@ BEGIN
             ON tn._Fld23604RRef = d._Fld17704_RRRef
         LEFT JOIN work.dbo._Reference162 org
             ON org._IDRRef = c.CompanyRef
+        LEFT JOIN work.dbo._Reference279 vt
+            ON vt._IDRRef = c.VehicleTypeRef
         LEFT JOIN work.dbo._Reference123 cl
             ON cl._IDRRef = d._Fld17681_RRRef
         LEFT JOIN work.dbo._Reference304 r
@@ -136,7 +147,7 @@ BEGIN
         OrderRef, OrderNo, OrderDate, StartPlan, EndPlan, StartFact, EndFact,
         SortDate,
 
-        TrailerRef, TrailerName, TrailerCompanyRef, TrailerCompany, HomeCountry,
+        TrailerRef, TrailerName, TrailerCompanyRef, TrailerCompany, HomeCountry, TrailerType,
         ClientRef, ClientName, CountryFrom, CountryWhere, RouteName, IsUnknown,
 
         CASE
@@ -469,7 +480,20 @@ BEGIN
         t.TrailerRef,
         MIN(s.SortDate) AS TripStart,
         MAX(s.SortDate) AS TripEnd,
-        MIN(s.rn)       AS FirstRn
+        MIN(s.rn)       AS FirstRn,
+        MAX(CASE
+                WHEN s.TrailerType IN (N'Платформа', N'Спеціалізований напівпричіп контейнеровоз')
+                THEN 1 ELSE 0
+            END) AS IsContainer,
+        MAX(CASE
+                WHEN s.CountryFrom IS NOT NULL OR s.CountryWhere IS NOT NULL
+                THEN 1 ELSE 0
+            END) AS HasCountry,
+        MAX(CASE
+                WHEN (s.CountryFrom  IS NOT NULL AND s.CountryFrom  <> 'UA')
+                  OR (s.CountryWhere IS NOT NULL AND s.CountryWhere <> 'UA')
+                THEN 1 ELSE 0
+            END) AS HasNonUA
     INTO #TripSum
     FROM #Trips t
     INNER JOIN #OrderTrip ot ON ot.TripId = t.TripId
@@ -477,6 +501,15 @@ BEGIN
     GROUP BY t.TripId, t.TripKind, t.TrailerRef;
 
     ALTER TABLE #TripSum ADD TripNo int NULL;
+    ALTER TABLE #TripSum ADD TripType nvarchar(20) NULL;
+
+    UPDATE #TripSum
+    SET TripType = CASE
+            WHEN IsContainer = 1 THEN N'Контейнери'
+            WHEN HasCountry  = 0 THEN NULL
+            WHEN HasNonUA    = 0 THEN N'Україна'
+            ELSE N'Європа'
+        END;
 
     ;WITH Numbered AS
     (
@@ -508,7 +541,7 @@ BEGIN
         SELECT
             b.OrderRef,
             ts.TripNo,
-            CASE ts.TripKind WHEN 'Intl' THEN N'Міжнародний' WHEN 'Dom' THEN N'Український' END,
+            ts.TripType,
             b.TrailerRef,
             b.TrailerName,
             b.TrailerCompany,

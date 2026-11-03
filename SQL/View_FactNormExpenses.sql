@@ -1,4 +1,4 @@
--- select * from pbi.v_FactNormExpenses where OrderRef = '80B902B31CC3E40111F1BC0CC7E438AC'
+-- select * from pbi.v_FactNormExpenses where OrderRef = '80B902B31CC3E40111F1A793B27D9BDE'
 -- select * from pbi.vb_FactNormExpenses
 --
 -- Різниця фактичних та нормативних витрат у розрізі замовлення,
@@ -119,13 +119,22 @@ agg AS (
 plan_days AS (
     SELECT CONVERT(binary(16), OrderRef, 2) AS OrderRef, SUM(DayPart) AS Days
     FROM pbi.TargetTablePlan
-    WHERE OrderRef IS NOT NULL AND DurationStatement = 1 AND TargetDate >= '2024-01-01'
+    WHERE OrderRef IS NOT NULL AND DurationStatement = 1 AND IsPaidStatement = 1 AND TargetDate >= '2024-01-01'
     GROUP BY OrderRef
 ),
+-- Факт днів — з регістру накопичення "Затраты" (УАТ), ресурс "Табель годин" (_Fld34333)
 fact_days AS (
-    SELECT CONVERT(binary(16), OrderRef, 2) AS OrderRef, SUM(DayPart) AS Days
-    FROM pbi.TargetTableReal
-    WHERE OrderRef IS NOT NULL AND DurationStatement = 1 AND TargetDate >= '2024-01-01'
+    SELECT OrderRef, MAX(Days) AS Days
+    FROM (
+        SELECT _Fld26320_RRRef AS OrderRef, SUM(_Fld34333) AS Days
+        FROM dbo._AccumRg26319
+        WHERE _Active = 0x01
+          AND _Period >= '4024-01-01'
+          AND _Fld26320_RRRef <> 0x00000000000000000000000000000000
+          AND _Fld26321RRef IN (0x86F5B68AC35E4EB511E679CAA0EBCC81,
+                                0x8DE59E02FDC0F6A111EB59912A99E1F0)
+        GROUP BY _Fld26320_RRRef, _Fld26321RRef
+    ) z
     GROUP BY OrderRef
 ),
 -- Основні статті: долучаємо фізичні показники один раз

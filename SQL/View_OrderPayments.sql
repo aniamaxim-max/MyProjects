@@ -8,19 +8,7 @@ IF EXISTS(SELECT v.name FROM sys.views v
 GO
 
 CREATE VIEW pbi.v_OrderPayments AS
-WITH inv AS (
-    SELECT CustomOrderRef, SUM([Sum]) AS InvoicedSum
-    FROM pbi.v_DimOrderPayment
-    WHERE RecordKind = 0
-    GROUP BY CustomOrderRef
-),
-pay AS (
-    SELECT CustomOrderRef, SUM([Sum]) AS PaidSum, MAX([Period]) AS LastPayment
-    FROM pbi.v_DimOrderPayment
-    WHERE RecordKind = 1
-    GROUP BY CustomOrderRef
-),
-inc AS (
+WITH inc AS (
     SELECT OrderRef, SUM(SumNoVatEur) AS IncomeNoVatEur
     FROM pbi.v_DimOrdersIncome
     GROUP BY OrderRef
@@ -32,13 +20,30 @@ exp AS (
 ),
 ord AS (
     SELECT o.OrderRef, o.[Order], o.OrderDate, o.ClientReff, o.DispetcherReff,
-           SUM(ISNULL(i.InvoicedSum, 0)) AS InvoicedSum,
-           SUM(ISNULL(p.PaidSum, 0))     AS PaidSum,
-           MAX(p.LastPayment)            AS LastPaymentDate
+           SUM(CASE WHEN d.RecordKind = 0 THEN d.[Sum] ELSE 0 END) AS InvoicedSum,
+           SUM(CASE WHEN d.RecordKind = 1 THEN d.[Sum] ELSE 0 END) AS PaidSum,
+           SUM(CASE WHEN d.RecordKind = 0 THEN d.[Sum]
+                    WHEN d.RecordKind = 1 THEN -d.[Sum]
+                    ELSE 0 END / NULLIF(er.Rate / NULLIF(cr.Rate, 0), 0)) AS RemainderEur,
+           MAX(CASE WHEN d.RecordKind = 1 THEN d.[Period] END)     AS LastPaymentDate
     FROM pbi.v_DimOrders o
     INNER JOIN pbi.v_DimCustomOrders c ON c.BaseDocRef = o.OrderRef
-    LEFT JOIN inv i ON i.CustomOrderRef = c.CustomOrderRef
-    LEFT JOIN pay p ON p.CustomOrderRef = c.CustomOrderRef
+    LEFT JOIN pbi.v_DimOrderPayment d ON d.CustomOrderRef = c.CustomOrderRef
+    LEFT JOIN work.dbo._Reference85 ct ON ct._IDRRef = CONVERT(binary(16), d.ContractRef, 2)
+    OUTER APPLY (
+        SELECT TOP 1 r._Fld20832 / r._Fld20833 AS Rate
+        FROM work.dbo._InfoRg20830 r
+        WHERE r._Fld20831RRef = COALESCE(ct._Fld1922RRef, CONVERT(binary(16), o.CurrencyRef, 2))
+          AND r._Period <= DATEADD(YEAR, 2000, COALESCE(o.StartFact, o.OrderDate))
+        ORDER BY r._Period DESC
+    ) cr
+    OUTER APPLY (
+        SELECT TOP 1 e._Fld20832 / e._Fld20833 AS Rate
+        FROM work.dbo._InfoRg20830 e
+        WHERE e._Fld20831RRef = 0x86F7D6671738F3EC11E653118C548398
+          AND e._Period <= DATEADD(YEAR, 2000, COALESCE(o.StartFact, o.OrderDate))
+        ORDER BY e._Period DESC
+    ) er
     GROUP BY o.OrderRef, o.[Order], o.OrderDate, o.ClientReff, o.DispetcherReff
 )
 SELECT
@@ -52,6 +57,7 @@ SELECT
     o.InvoicedSum,
     o.PaidSum,
     o.InvoicedSum - o.PaidSum         AS Remainder,
+    o.RemainderEur,
     ISNULL(inc.IncomeNoVatEur, 0)     AS IncomeNoVatEur,
     ISNULL(exp.ExpensesNoVatEur, 0)   AS ExpensesNoVatEur,
     ISNULL(inc.IncomeNoVatEur, 0) - ISNULL(exp.ExpensesNoVatEur, 0) AS MarginNoVatEur,
@@ -70,19 +76,7 @@ IF EXISTS(SELECT v.name FROM sys.views v
 GO
 
 CREATE VIEW pbi.vb_OrderPayments AS
-WITH inv AS (
-    SELECT CustomOrderRef, SUM([Sum]) AS InvoicedSum
-    FROM pbi.vb_DimOrderPayment
-    WHERE RecordKind = 0
-    GROUP BY CustomOrderRef
-),
-pay AS (
-    SELECT CustomOrderRef, SUM([Sum]) AS PaidSum, MAX([Period]) AS LastPayment
-    FROM pbi.vb_DimOrderPayment
-    WHERE RecordKind = 1
-    GROUP BY CustomOrderRef
-),
-inc AS (
+WITH inc AS (
     SELECT OrderRef, SUM(SumNoVatEur) AS IncomeNoVatEur
     FROM pbi.vb_DimOrdersIncome
     GROUP BY OrderRef
@@ -94,13 +88,30 @@ exp AS (
 ),
 ord AS (
     SELECT o.OrderRef, o.[Order], o.OrderDate, o.ClientReff, o.DispetcherReff,
-           SUM(ISNULL(i.InvoicedSum, 0)) AS InvoicedSum,
-           SUM(ISNULL(p.PaidSum, 0))     AS PaidSum,
-           MAX(p.LastPayment)            AS LastPaymentDate
+           SUM(CASE WHEN d.RecordKind = 0 THEN d.[Sum] ELSE 0 END) AS InvoicedSum,
+           SUM(CASE WHEN d.RecordKind = 1 THEN d.[Sum] ELSE 0 END) AS PaidSum,
+           SUM(CASE WHEN d.RecordKind = 0 THEN d.[Sum]
+                    WHEN d.RecordKind = 1 THEN -d.[Sum]
+                    ELSE 0 END / NULLIF(er.Rate / NULLIF(cr.Rate, 0), 0)) AS RemainderEur,
+           MAX(CASE WHEN d.RecordKind = 1 THEN d.[Period] END)     AS LastPaymentDate
     FROM pbi.vb_DimOrders o
     INNER JOIN pbi.vb_DimCustomOrders c ON c.BaseDocRef = o.OrderRef
-    LEFT JOIN inv i ON i.CustomOrderRef = c.CustomOrderRef
-    LEFT JOIN pay p ON p.CustomOrderRef = c.CustomOrderRef
+    LEFT JOIN pbi.vb_DimOrderPayment d ON d.CustomOrderRef = c.CustomOrderRef
+    LEFT JOIN work.dbo._Reference85 ct ON ct._IDRRef = d.ContractRef
+    OUTER APPLY (
+        SELECT TOP 1 r._Fld20832 / r._Fld20833 AS Rate
+        FROM work.dbo._InfoRg20830 r
+        WHERE r._Fld20831RRef = COALESCE(ct._Fld1922RRef, o.CurrencyRef)
+          AND r._Period <= DATEADD(YEAR, 2000, COALESCE(o.StartFact, o.OrderDate))
+        ORDER BY r._Period DESC
+    ) cr
+    OUTER APPLY (
+        SELECT TOP 1 e._Fld20832 / e._Fld20833 AS Rate
+        FROM work.dbo._InfoRg20830 e
+        WHERE e._Fld20831RRef = 0x86F7D6671738F3EC11E653118C548398
+          AND e._Period <= DATEADD(YEAR, 2000, COALESCE(o.StartFact, o.OrderDate))
+        ORDER BY e._Period DESC
+    ) er
     GROUP BY o.OrderRef, o.[Order], o.OrderDate, o.ClientReff, o.DispetcherReff
 )
 SELECT
@@ -113,6 +124,7 @@ SELECT
     o.InvoicedSum,
     o.PaidSum,
     o.InvoicedSum - o.PaidSum         AS Remainder,
+    o.RemainderEur,
     ISNULL(inc.IncomeNoVatEur, 0)     AS IncomeNoVatEur,
     ISNULL(exp.ExpensesNoVatEur, 0)   AS ExpensesNoVatEur,
     ISNULL(inc.IncomeNoVatEur, 0) - ISNULL(exp.ExpensesNoVatEur, 0) AS MarginNoVatEur,
