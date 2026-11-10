@@ -1,92 +1,111 @@
 ;WITH CriteriaLatest AS
-(
+    (
     SELECT _Fld34328RRef, _Fld34329RRef
     FROM
     (
-        SELECT
-            _Fld34328RRef,
-            _Fld34329RRef,
-            ROW_NUMBER() OVER (PARTITION BY _Fld34328RRef ORDER BY _Period DESC) AS rn
-        FROM work.dbo._InfoRg34327
-        WHERE _Period < DATEADD(YEAR, 2000, GETDATE())
+    SELECT
+    _Fld34328RRef,
+    _Fld34329RRef,
+    ROW_NUMBER() OVER (PARTITION BY _Fld34328RRef ORDER BY _Period DESC) AS rn
+    FROM work.dbo._InfoRg34327
+    WHERE _Period < DATEADD(YEAR, 2000, GETDATE())
     ) AS t
     WHERE t.rn = 1
-),
-CriteriaNodes AS
-(
+    ),
+    CriteriaNodes AS
+    (
     SELECT DISTINCT _Fld34329RRef AS _IDRRef
     FROM CriteriaLatest
-),
-Tree AS
-(
+    ),
+    Tree AS
+    (
     SELECT
-        r._IDRRef,
-        r._ParentIDRRef,
-        r._Description,
-        1 AS [Level],
-        r._IDRRef AS BaseRef
+    r._IDRRef,
+    r._ParentIDRRef,
+    r._Description,
+    1 AS [Level],
+    r._IDRRef AS BaseRef
     FROM work.dbo._Reference34326 AS r
     INNER JOIN CriteriaNodes AS n ON n._IDRRef = r._IDRRef
     UNION ALL
     SELECT
-        p._IDRRef,
-        p._ParentIDRRef,
-        p._Description,
-        t.[Level] + 1 AS [Level],
-        t.BaseRef
+    p._IDRRef,
+    p._ParentIDRRef,
+    p._Description,
+    t.[Level] + 1 AS [Level],
+    t.BaseRef
     FROM Tree AS t
     INNER JOIN work.dbo._Reference34326 AS p ON p._IDRRef = t._ParentIDRRef
-),
-TreeOrdered AS
-(
+    ),
+    TreeOrdered AS
+    (
     SELECT
-        *,
-        MAX([Level]) OVER (PARTITION BY BaseRef) - [Level] + 1 AS ReversedLevel
+    *,
+    MAX([Level]) OVER (PARTITION BY BaseRef) - [Level] + 1 AS ReversedLevel
     FROM Tree
-),
-DimCriteria AS
-(
+    ),
+    DimCriteria AS
+    (
     SELECT
-        BaseRef AS _IDRRef,
-        MAX(CASE WHEN ReversedLevel = 1 THEN _Description END) AS L1_Description,
-        MAX(CASE WHEN ReversedLevel = 2 THEN _Description END) AS L2_Description,
-        MAX(CASE WHEN ReversedLevel = 3 THEN _Description END) AS L3_Description,
-        MAX(CASE WHEN ReversedLevel = 4 THEN _Description END) AS L4_Description
+    BaseRef AS _IDRRef,
+    MAX(CASE WHEN ReversedLevel = 1 THEN _Description END) AS L1_Description,
+    MAX(CASE WHEN ReversedLevel = 2 THEN _Description END) AS L2_Description,
+    MAX(CASE WHEN ReversedLevel = 3 THEN _Description END) AS L3_Description,
+    MAX(CASE WHEN ReversedLevel = 4 THEN _Description END) AS L4_Description
     FROM TreeOrdered
     GROUP BY BaseRef
-),
-Criteria AS
-(
+    ),
+    Criteria AS
+    (
     SELECT
-        cl._Fld34328RRef,
-        COALESCE(dc.L4_Description, dc.L3_Description, dc.L2_Description, dc.L1_Description) AS Description4
+    cl._Fld34328RRef,
+    COALESCE(dc.L4_Description, dc.L3_Description, dc.L2_Description, dc.L1_Description) AS Description4
     FROM CriteriaLatest AS cl
     LEFT JOIN DimCriteria AS dc ON dc._IDRRef = cl._Fld34329RRef
-),
-PlanWeights AS
-(
+    ),
+    CargoRows AS
+    (
     SELECT
-        _Document650_IDRRef,
-        SUM(_Fld17821) AS PlanWeight,
-        CAST(MIN(CAST(_Fld34307 AS INT)) AS BIT) AS ExactWeight
+    _Document650_IDRRef,
+    _Fld17820RRef,
+    _Fld17821,
+    _Fld34307,
+    _LineNo17819,
+    ROW_NUMBER() OVER (PARTITION BY _Document650_IDRRef ORDER BY _Fld17821 DESC, _LineNo17819 ASC) AS rn
     FROM work.dbo._Document650_VT17818
+    ),
+    PlanWeights AS
+    (
+    SELECT
+    _Document650_IDRRef,
+    SUM(_Fld17821) AS PlanWeight,
+    CAST(MIN(CAST(_Fld34307 AS INT)) AS BIT) AS ExactWeight
+    FROM CargoRows
     GROUP BY _Document650_IDRRef
-),
-VehicleTypes AS
-(
+    ),
+    MainCargo AS
+    (
+    SELECT
+    _Document650_IDRRef,
+    _Fld17820RRef
+    FROM CargoRows
+    WHERE rn = 1
+    ),
+    VehicleTypes AS
+    (
     SELECT VehicleRef, VehicleType
     FROM
     (
-        SELECT
-            r._Fld23489RRef AS VehicleRef,
-            vt._Description AS VehicleType,
-            ROW_NUMBER() OVER (PARTITION BY r._Fld23489RRef ORDER BY r._Period DESC) AS rn
-        FROM work.dbo._InfoRg23488 AS r
-        LEFT JOIN work.dbo._Reference279 AS vt ON vt._IDRRef = r._Fld23491RRef
+    SELECT
+    r._Fld23489RRef AS VehicleRef,
+    vt._Description AS VehicleType,
+    ROW_NUMBER() OVER (PARTITION BY r._Fld23489RRef ORDER BY r._Period DESC) AS rn
+    FROM work.dbo._InfoRg23488 AS r
+    LEFT JOIN work.dbo._Reference279 AS vt ON vt._IDRRef = r._Fld23491RRef
     ) AS t
     WHERE t.rn = 1
-)
-SELECT
+    )
+    SELECT
     _Document650._Number AS 'Order'
     ,CONVERT(VARCHAR(32), _Document650._IDRRef, 2) AS 'OrderRef'
     ,IIF(_Document650._Date_Time >= DATEFROMPARTS(4001,1,1), DATEADD(YEAR, -2000,_Document650._Date_Time), null) AS 'OrderDate'
@@ -148,59 +167,64 @@ SELECT
     ,_Document650._Fld34309 AS 'MaxPlanWeight'
     ,PlanWeight.PlanWeight
     ,PlanWeight.ExactWeight
+    ,Cargo._Description AS 'CargoName'
+    ,CargoGroup._Description AS 'ProductGroup'
     ,ot.TripNo
     ,ot.TripType
     ,ot.TripStart
     ,ot.TripEnd
-FROM work.dbo._Document650
-INNER JOIN
-(
+    FROM work.dbo._Document650
+    INNER JOIN
+    (
     SELECT
-        _IDRRef,
-        CASE _Enum26798._EnumOrder
-        WHEN 0 THEN 'Выгружено'
-        WHEN 1 THEN 'Запланировано'
-        WHEN 2 THEN 'Отказано клиентом'
-        WHEN 3 THEN 'К исполнению'
-        WHEN 4 THEN 'Загружено'
-        WHEN 5 THEN 'Выполнено'
-        WHEN 6 THEN 'Отказано'
-        WHEN 7 THEN 'В работе'
-        WHEN 8 THEN 'Создан ПЛ'
-        WHEN 9 THEN 'Справка-счет'
-        WHEN 10 THEN 'Справка-счет (прикреплен)'
-        WHEN 11 THEN 'Справка-счет (отправлен)'
-        WHEN 12 THEN 'Прикреплено CMR/ТТН'
-        WHEN 13 THEN 'Выписан счет'
-        WHEN 14 THEN 'Счет утвержден'
-        WHEN 15 THEN 'Отправлено'
-        WHEN 16 THEN 'Закрыт'
-        WHEN 17 THEN 'Оплачено'
-        WHEN 18 THEN 'Создан'
-        WHEN 19 THEN 'Запланировано'
-        WHEN 20 THEN 'Справка-счет не нужна'
-        END AS 'Statment'
+    _IDRRef,
+    CASE _Enum26798._EnumOrder
+    WHEN 0 THEN 'Выгружено'
+    WHEN 1 THEN 'Запланировано'
+    WHEN 2 THEN 'Отказано клиентом'
+    WHEN 3 THEN 'К исполнению'
+    WHEN 4 THEN 'Загружено'
+    WHEN 5 THEN 'Выполнено'
+    WHEN 6 THEN 'Отказано'
+    WHEN 7 THEN 'В работе'
+    WHEN 8 THEN 'Создан ПЛ'
+    WHEN 9 THEN 'Справка-счет'
+    WHEN 10 THEN 'Справка-счет (прикреплен)'
+    WHEN 11 THEN 'Справка-счет (отправлен)'
+    WHEN 12 THEN 'Прикреплено CMR/ТТН'
+    WHEN 13 THEN 'Выписан счет'
+    WHEN 14 THEN 'Счет утвержден'
+    WHEN 15 THEN 'Отправлено'
+    WHEN 16 THEN 'Закрыт'
+    WHEN 17 THEN 'Оплачено'
+    WHEN 18 THEN 'Создан'
+    WHEN 19 THEN 'Запланировано'
+    WHEN 20 THEN 'Справка-счет не нужна'
+    END AS 'Statment'
     FROM work.dbo._Enum26798
-) AS Statments
+    ) AS Statments
     ON _Document650._Fld17685RRef = Statments._IDRRef
-LEFT JOIN work.dbo._Reference289 AS ContainerNames ON _Document650._Fld17719_RRRef = ContainerNames._IDRRef
-LEFT JOIN work.dbo._Reference289 AS ContainerTypes ON ContainerNames._ParentIDRRef = ContainerTypes._IDRRef
-LEFT JOIN work.dbo._InfoRg23603 AS TrailerNames ON _Document650._Fld17704_RRRef = TrailerNames._Fld23604RRef
-LEFT JOIN VehicleTypes AS VehicleTypes ON VehicleTypes.VehicleRef = _Document650._Fld17704_RRRef
-LEFT JOIN Criteria AS Criteria ON Criteria._Fld34328RRef = _Document650._Fld17704_RRRef
-LEFT JOIN
-(
+    LEFT JOIN work.dbo._Reference289 AS ContainerNames ON _Document650._Fld17719_RRRef = ContainerNames._IDRRef
+    LEFT JOIN work.dbo._Reference289 AS ContainerTypes ON ContainerNames._ParentIDRRef = ContainerTypes._IDRRef
+    LEFT JOIN work.dbo._InfoRg23603 AS TrailerNames ON _Document650._Fld17704_RRRef = TrailerNames._Fld23604RRef
+    LEFT JOIN VehicleTypes AS VehicleTypes ON VehicleTypes.VehicleRef = _Document650._Fld17704_RRRef
+    LEFT JOIN Criteria AS Criteria ON Criteria._Fld34328RRef = _Document650._Fld17704_RRRef
+    LEFT JOIN
+    (
     SELECT
-        _IDRRef,
-        CASE _EnumOrder
-        WHEN 0 then 'На экспорт'
-        WHEN 1 then 'На импорт'
-        WHEN 2 then 'Внутренний Украина'
-        WHEN 3 then 'Внутренний Европа'
-        END AS 'OrderDirType'
+    _IDRRef,
+    CASE _EnumOrder
+    WHEN 0 then 'На экспорт'
+    WHEN 1 then 'На импорт'
+    WHEN 2 then 'Внутренний Украина'
+    WHEN 3 then 'Внутренний Европа'
+    END AS 'OrderDirType'
     FROM work.dbo._Enum1191
-) AS DirOrderType
+    ) AS DirOrderType
     ON _Document650._Fld17687RRef = DirOrderType._IDRRef
-LEFT JOIN work.dbo._Reference331 AS Explanation ON _Document650._Fld17760RRef = Explanation._IDRRef
-LEFT JOIN PlanWeights AS PlanWeight ON PlanWeight._Document650_IDRRef = _Document650._IDRRef
-LEFT JOIN pbi.OrderTrip AS ot ON ot.OrderRef = CONVERT(VARCHAR(32), _Document650._IDRRef, 2)
+    LEFT JOIN work.dbo._Reference331 AS Explanation ON _Document650._Fld17760RRef = Explanation._IDRRef
+    LEFT JOIN PlanWeights AS PlanWeight ON PlanWeight._Document650_IDRRef = _Document650._IDRRef
+    LEFT JOIN MainCargo AS MainCargo ON MainCargo._Document650_IDRRef = _Document650._IDRRef
+    LEFT JOIN work.dbo._Reference271 AS Cargo ON Cargo._IDRRef = MainCargo._Fld17820RRef
+    LEFT JOIN work.dbo._Reference271 AS CargoGroup ON CargoGroup._IDRRef = Cargo._ParentIDRRef
+    LEFT JOIN pbi.OrderTrip AS ot ON ot.OrderRef = CONVERT(VARCHAR(32), _Document650._IDRRef, 2)

@@ -260,7 +260,7 @@ Create PROCEDURE [pbi].[RefreshFreeCars] AS
     left join (
         select 
             TruckRef, 
-            SUM(MarginPerDay) / SUM(QuotaPerDAY) as QuotaIsDone
+            SUM(MarginPerDay) / NULLIF(SUM(QuotaPerDAY), 0) as QuotaIsDone
         from pbi.TargetTableFact
         where TargetDate = CAST(GETDATE() AS Date)
         group by TruckRef

@@ -1,4 +1,4 @@
--- select * from pbi.v_FactNormExpenses where OrderRef = '80B902B31CC3E40111F1A793B27D9BDE'
+-- select * from pbi.v_FactNormExpenses where OrderRef = '80B902B31CC3E40111F14AD3086A94A7'
 -- select * from pbi.vb_FactNormExpenses
 --
 -- Різниця фактичних та нормативних витрат у розрізі замовлення,
@@ -115,25 +115,29 @@ agg AS (
     FULL OUTER JOIN fact_agg fa ON fa.OrderRef = p.OrderRef AND fa.ArtRef = p.ArtRef
     WHERE COALESCE(p.OrderRef, fa.OrderRef) IN (SELECT OrderRef FROM orders)
 ),
--- К-сть днів: план / факт
-plan_days AS (
-    SELECT CONVERT(binary(16), OrderRef, 2) AS OrderRef, SUM(DayPart) AS Days
-    FROM pbi.TargetTablePlan
-    WHERE OrderRef IS NOT NULL AND DurationStatement = 1 AND IsPaidStatement = 1 AND TargetDate >= '2024-01-01'
-    GROUP BY OrderRef
+-- Маршрути, які проїхав Шумелда Ігор Володимирович: їхні нарахування ЗП/ЄСВ не включаємо в аналіз
+excluded_routes AS (
+    SELECT DISTINCT t.OrderRef, t.RouteRef
+    FROM pbi.vb_RouteSheetTask t
+    INNER JOIN pbi.vb_RouteSheet rs ON rs.RouteSheetRef = t.RouteSheetRef
+    WHERE rs.DriverRef = 0x86F5B68AC35E4EB511E67B130275070A
 ),
 -- Факт днів — з регістру накопичення "Затраты" (УАТ), ресурс "Табель годин" (_Fld34333)
 fact_days AS (
     SELECT OrderRef, MAX(Days) AS Days
     FROM (
-        SELECT _Fld26320_RRRef AS OrderRef, SUM(_Fld34333) AS Days
-        FROM dbo._AccumRg26319
-        WHERE _Active = 0x01
-          AND _Period >= '4024-01-01'
-          AND _Fld26320_RRRef <> 0x00000000000000000000000000000000
-          AND _Fld26321RRef IN (0x86F5B68AC35E4EB511E679CAA0EBCC81,
+        SELECT r._Fld26320_RRRef AS OrderRef, SUM(r._Fld34333) AS Days
+        FROM dbo._AccumRg26319 r
+        LEFT JOIN excluded_routes er
+               ON er.OrderRef = r._Fld26320_RRRef
+              AND er.RouteRef = r._Fld26327_RRRef
+        WHERE r._Active = 0x01
+          AND r._Period >= '4024-01-01'
+          AND r._Fld26320_RRRef <> 0x00000000000000000000000000000000
+          AND r._Fld26321RRef IN (0x86F5B68AC35E4EB511E679CAA0EBCC81,
                                 0x8DE59E02FDC0F6A111EB59912A99E1F0)
-        GROUP BY _Fld26320_RRRef, _Fld26321RRef
+          AND er.OrderRef IS NULL
+        GROUP BY r._Fld26320_RRRef, r._Fld26321RRef
     ) z
     GROUP BY OrderRef
 ),
@@ -143,13 +147,13 @@ base AS (
            d.DistPlan, d.FuelLitersPlan, d.AdBlueLitersPlan,
            rs.DistFact, rs.DistEuroFact, rp.DistEuroPlan,
            ff.FuelLitersFact, ff.AdBlueLitersFact,
-           pd.Days AS PlanDays, fd.Days AS FactDays
+           pd.PlanDays AS PlanDays, fd.Days AS FactDays
     FROM agg m
     LEFT JOIN doc684 d ON d.OrderRef = m.OrderRef
     LEFT JOIN rstd rs ON rs.OrderRef = m.OrderRef
     LEFT JOIN roads_plan rp ON rp.OrderRef = m.OrderRef
     LEFT JOIN fuel_fact ff ON ff.OrderRef = m.OrderRef
-    LEFT JOIN plan_days pd ON pd.OrderRef = m.OrderRef
+    LEFT JOIN pbi.vb_GetPlanDays pd ON pd.OrderRef = m.OrderRef
     LEFT JOIN fact_days fd ON fd.OrderRef = m.OrderRef
     WHERE m.ArtRef IN (0x86F5B68AC35E4EB511E679CAA0EBCC7F,0x9647CE26E65997AA11EB774C4EFFEBB1,
                        0x86F5B68AC35E4EB511E679CAA0EBCC81,0x8DE59E02FDC0F6A111EB59912A99E1F0,

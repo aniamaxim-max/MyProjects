@@ -156,7 +156,7 @@ BEGIN
                 CASE WHEN b1.StartFact_RShT > b2.StartFact_RShT THEN b1.StartFact_RShT ELSE b2.StartFact_RShT END,
                 CASE WHEN b1.EndFact_RShT < b2.EndFact_RShT THEN b1.EndFact_RShT ELSE b2.EndFact_RShT END
             ) >= 1
-    ORDER BY [Причина], [Держ номер авто];
+    ORDER BY [Держ номер авто], [Причина];
 
     DROP TABLE #base;
 END
